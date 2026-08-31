@@ -86,6 +86,50 @@ class ChangeRecord(BaseModel):
     impact_propagated_to: list[str] = Field(default_factory=list)
 
 
+class DeploymentIssue(BaseModel):
+    """A static deployment-readiness finding — config/secrets/dependency
+    risks that would otherwise only surface after a deploy."""
+
+    id: str
+    project_id: str
+    category: Literal["secret_exposure", "dependency_pinning", "undocumented_env_var", "missing_ci_or_container"]
+    severity: Literal["low", "medium", "high"]
+    file_path: str | None = None
+    line: int | None = None
+    message: str
+    detected_at: datetime = Field(default_factory=utcnow)
+
+
+class PerformanceRisk(BaseModel):
+    """A static performance-risk finding on one component, based on
+    structural heuristics (nesting/complexity/recursion) rather than
+    measured runtime — a candidate list for where to add real benchmarks."""
+
+    id: str
+    project_id: str
+    component_id: str
+    category: Literal["nested_loops", "high_complexity_hot_path", "unbounded_recursion"]
+    severity: Literal["low", "medium", "high"]
+    message: str
+    detected_at: datetime = Field(default_factory=utcnow)
+
+
+class PredictedRisk(BaseModel):
+    """A risk flagged when a component matches a pattern the literature
+    associates with defect-proneness — either a structural code smell, or a
+    high historical modification-frequency ("code churn") signal computed
+    from this project's own accumulated ChangeRecord history."""
+
+    id: str
+    project_id: str
+    component_id: str
+    category: Literal["god_class", "god_method", "long_parameter_list", "deep_nesting", "high_churn"]
+    severity: Literal["low", "medium", "high"]
+    message: str
+    evidence: dict = Field(default_factory=dict)
+    detected_at: datetime = Field(default_factory=utcnow)
+
+
 class Recommendation(BaseModel):
     """An AI Review Engine decision about a component's test coverage."""
 

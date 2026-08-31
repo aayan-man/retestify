@@ -11,7 +11,15 @@ from pydantic import BaseModel
 from app.repo_manager.workspace import Workspace
 
 from . import paths as kb_paths
-from .schema import ChangeRecord, Component, Recommendation, TestCase
+from .schema import (
+    ChangeRecord,
+    Component,
+    DeploymentIssue,
+    PerformanceRisk,
+    PredictedRisk,
+    Recommendation,
+    TestCase,
+)
 
 T = TypeVar("T", bound=BaseModel)
 SCHEMA_VERSION = 1
@@ -47,6 +55,24 @@ class KnowledgeBaseStore(ABC):
 
     @abstractmethod
     def load_recommendations(self, ws: Workspace) -> list[Recommendation]: ...
+
+    @abstractmethod
+    def save_deployment_issues(self, ws: Workspace, items: list[DeploymentIssue]) -> None: ...
+
+    @abstractmethod
+    def load_deployment_issues(self, ws: Workspace) -> list[DeploymentIssue]: ...
+
+    @abstractmethod
+    def save_performance_risks(self, ws: Workspace, items: list[PerformanceRisk]) -> None: ...
+
+    @abstractmethod
+    def load_performance_risks(self, ws: Workspace) -> list[PerformanceRisk]: ...
+
+    @abstractmethod
+    def save_predicted_risks(self, ws: Workspace, items: list[PredictedRisk]) -> None: ...
+
+    @abstractmethod
+    def load_predicted_risks(self, ws: Workspace) -> list[PredictedRisk]: ...
 
 
 def _write_collection(path: Path, project_id: str, items: list[BaseModel]) -> None:
@@ -91,3 +117,21 @@ class JSONFileStore(KnowledgeBaseStore):
 
     def load_recommendations(self, ws: Workspace) -> list[Recommendation]:
         return _read_collection(kb_paths.recommendations_path(ws), Recommendation)
+
+    def save_deployment_issues(self, ws: Workspace, items: list[DeploymentIssue]) -> None:
+        _write_collection(kb_paths.deployment_issues_path(ws), ws.project_id, items)
+
+    def load_deployment_issues(self, ws: Workspace) -> list[DeploymentIssue]:
+        return _read_collection(kb_paths.deployment_issues_path(ws), DeploymentIssue)
+
+    def save_performance_risks(self, ws: Workspace, items: list[PerformanceRisk]) -> None:
+        _write_collection(kb_paths.performance_risks_path(ws), ws.project_id, items)
+
+    def load_performance_risks(self, ws: Workspace) -> list[PerformanceRisk]:
+        return _read_collection(kb_paths.performance_risks_path(ws), PerformanceRisk)
+
+    def save_predicted_risks(self, ws: Workspace, items: list[PredictedRisk]) -> None:
+        _write_collection(kb_paths.predicted_risks_path(ws), ws.project_id, items)
+
+    def load_predicted_risks(self, ws: Workspace) -> list[PredictedRisk]:
+        return _read_collection(kb_paths.predicted_risks_path(ws), PredictedRisk)

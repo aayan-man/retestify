@@ -16,14 +16,19 @@ class ProviderOverride(BaseModel):
     provider: str | None = None
 
 
+class ApplyRequest(BaseModel):
+    provider: str | None = None
+    company_id: str | None = None
+
+
 @router.post("/{project_id}/classify", response_model=list[Recommendation])
 def classify(project_id: str, body: ProviderOverride = ProviderOverride()):
     return pipeline.classify_project(project_id, provider_name=body.provider)
 
 
 @router.post("/{project_id}/apply", response_model=list[Recommendation])
-def apply(project_id: str, body: ProviderOverride = ProviderOverride()):
-    return pipeline.apply_recommendations(project_id, provider_name=body.provider)
+def apply(project_id: str, body: ApplyRequest = ApplyRequest()):
+    return pipeline.apply_recommendations(project_id, provider_name=body.provider, company_id=body.company_id)
 
 
 @router.get("/{project_id}/recommendations", response_model=list[Recommendation])

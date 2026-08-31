@@ -8,7 +8,10 @@ re-analysis, a dashboard, CI/CD hooks, and a research evaluation harness.
 
 New here? See [GETTING_STARTED.md](GETTING_STARTED.md) for a full step-by-step
 setup walkthrough (this README's "Running it" section below is the quick
-reference).
+reference). See [docs/PROJECT_GUIDE_QA.md](docs/PROJECT_GUIDE_QA.md) for a
+research-cited write-up of deployment testing, performance testing,
+recurring-risk prediction, per-company personalization, and why grounding
+the AI Review Engine in static-analysis context beats a standalone LLM.
 
 ## Status
 
@@ -85,6 +88,26 @@ All 8 planned phases have an initial implementation:
 - `run_evaluation.py --config target_repos.yaml` drives all three arms
   across configured repos and writes a comparison CSV.
 
+**Deployment/performance/risk assessment & personalization**
+- `app/deployment_testing/checker.py` — static pre-deploy checks: hardcoded
+  secrets, unpinned dependencies, undocumented required env vars, missing
+  CI/container setup.
+- `app/performance_testing/risk_analyzer.py` — static performance-risk
+  triage (nested loops, high-complexity hot paths, unbounded recursion)
+  from the same component metrics the analyzers already compute.
+- `app/risk_prediction/` — structural code-smell detection (God Class/God
+  Method/long parameter list/deep nesting) plus code-churn risk from this
+  project's accumulated `ChangeRecord` history — the "what will this
+  codebase face again" signal.
+- `app/personalization/profile.py` — per-company `CompanyProfile`
+  (style-guide text injected into generation prompts, plus threshold
+  overrides), loaded from `backend/config/companies/*.json`.
+- All four are wired into `pipeline.assess_risks()`, the
+  `POST /projects/{id}/assess-risks` API route, and
+  `python -m app.cli assess-risks --project <id> [--company <id>]`. See
+  [docs/PROJECT_GUIDE_QA.md](docs/PROJECT_GUIDE_QA.md) for the research
+  grounding behind each one.
+
 ## Known scope limits
 
 - API endpoints run pipeline calls synchronously (no job queue) — fine for a
@@ -93,6 +116,10 @@ All 8 planned phases have an initial implementation:
   coverage-delta metric is intentionally left unset (see its docstring).
 - `accuracy` in the evaluation harness requires a human-labeled ground-truth
   mapping per repo; without one it's reported as absent, not estimated.
+- Performance testing is static triage, not benchmark execution (needs
+  Docker; see docs/PROJECT_GUIDE_QA.md §3).
+- Churn-based risk prediction needs `detect_changes` to have run more than
+  once on a project before it has any history to learn from.
 
 ## Running it
 

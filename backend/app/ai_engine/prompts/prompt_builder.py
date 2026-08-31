@@ -50,7 +50,15 @@ def build_classification_prompt(
     return _SYSTEM_PROMPT, prompt
 
 
-def build_generation_prompt(component: Component, source_root: Path, framework: str) -> tuple[str, str]:
+def _system_prompt(style_guide: str | None) -> str:
+    if not style_guide:
+        return _SYSTEM_PROMPT
+    return f"{_SYSTEM_PROMPT}\n\nFollow this organization's testing conventions:\n{style_guide}"
+
+
+def build_generation_prompt(
+    component: Component, source_root: Path, framework: str, style_guide: str | None = None
+) -> tuple[str, str]:
     prompt = _load("generate_test.txt").substitute(
         language=component.language,
         framework=framework,
@@ -61,7 +69,7 @@ def build_generation_prompt(component: Component, source_root: Path, framework: 
         component_docstring=component.docstring or "(none)",
         component_source=_read_snippet(source_root, component.file_path, component.line_start, component.line_end),
     )
-    return _SYSTEM_PROMPT, prompt
+    return _system_prompt(style_guide), prompt
 
 
 def build_improvement_prompt(
@@ -70,6 +78,7 @@ def build_improvement_prompt(
     source_root: Path,
     framework: str,
     rationale: str,
+    style_guide: str | None = None,
 ) -> tuple[str, str]:
     prompt = _load("improve_test.txt").substitute(
         language=component.language,
@@ -80,4 +89,4 @@ def build_improvement_prompt(
         test_source=_read_snippet(source_root, test.file_path, test.line_start, test.line_end),
         rationale=rationale,
     )
-    return _SYSTEM_PROMPT, prompt
+    return _system_prompt(style_guide), prompt

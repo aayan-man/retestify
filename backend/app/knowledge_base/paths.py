@@ -25,3 +25,15 @@ def audit_log_path(ws: Workspace) -> Path:
 
 def last_commit_path(ws: Workspace) -> Path:
     return ws.kb_dir / "last_commit.txt"
+
+
+def deployment_issues_path(ws: Workspace) -> Path:
+    return ws.kb_dir / "deployment_issues.json"
+
+
+def performance_risks_path(ws: Workspace) -> Path:
+    return ws.kb_dir / "performance_risks.json"
+
+
+def predicted_risks_path(ws: Workspace) -> Path:
+    return ws.kb_dir / "predicted_risks.json"

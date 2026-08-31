@@ -87,11 +87,17 @@ cd backend
 ./.venv/Scripts/python -m app.cli classify --project <project_id>   # needs an API key
 ./.venv/Scripts/python -m app.cli apply --project <project_id>
 ./.venv/Scripts/python -m app.cli run-tests --project <project_id>   # needs Docker
+
+# deployment-readiness / performance-risk / recurring-issue prediction (static, no key/Docker needed)
+./.venv/Scripts/python -m app.cli assess-risks --project <project_id>
+./.venv/Scripts/python -m app.cli assess-risks --project <project_id> --company example-corp
 ```
 
 For a repo you want change-tracking on, ingest via `--github <url>` instead
 of `--path` — `detect-changes`/`classify-changed` only work on git-ingested
-projects.
+projects. Run `detect-changes` more than once on the same project before
+`assess-risks` to see code-churn risk predictions — it needs accumulated
+history, not just one snapshot.
 
 ## 5. Run the API + dashboard
 

@@ -7,13 +7,26 @@ from app.ai_engine import decision_engine, generator
 from app.ai_engine.providers.factory import get_provider
 from app.analyzers.registry import detect_all
 from app.change_detector import diff_ast, impact
+from app.deployment_testing.checker import check_deployment_readiness
 from app.git_integration import repo as git_repo
 from app.knowledge_base import paths as kb_paths
-from app.knowledge_base.schema import ChangeRecord, Component, Recommendation, TestCase
+from app.knowledge_base.schema import (
+    ChangeRecord,
+    Component,
+    DeploymentIssue,
+    PerformanceRisk,
+    PredictedRisk,
+    Recommendation,
+    TestCase,
+)
 from app.knowledge_base.store import JSONFileStore
+from app.performance_testing.risk_analyzer import analyze_performance_risks
+from app.personalization.profile import CompanyProfile, load_company_profile
 from app.reporting.audit_log import log_event
 from app.repo_manager import ingest
 from app.repo_manager.workspace import Workspace, load_workspace
+from app.risk_prediction.churn_risk import compute_churn_risks
+from app.risk_prediction.pattern_detector import detect_code_smells
 from app.tech_detector.detector import StackProfile, detect_stack
 from app.test_analyzer.discover import extract_test_cases
 from app.test_analyzer.mapper import map_components_to_tests
@@ -99,10 +112,16 @@ def classify_project(project_id: str, provider_name: str | None = None) -> list[
     return recommendations
 
 
-def apply_recommendations(project_id: str, provider_name: str | None = None) -> list[Recommendation]:
+def apply_recommendations(
+    project_id: str, provider_name: str | None = None, company_id: str | None = None
+) -> list[Recommendation]:
     """For each pending "generate" or "modify" recommendation, have the AI
     engine write a test to disk (as a new test function — existing test
-    files are never rewritten in place) and mark the recommendation applied."""
+    files are never rewritten in place) and mark the recommendation applied.
+
+    `company_id`, if given, loads a CompanyProfile (see app/personalization)
+    whose style_guide is injected into the generation/improvement prompts —
+    the personalization lever for per-organization conventions."""
     workspace = load_workspace(project_id)
     store = JSONFileStore()
     components_by_id = {c.id: c for c in store.load_components(workspace)}
@@ -110,6 +129,7 @@ def apply_recommendations(project_id: str, provider_name: str | None = None) -> 
     recommendations = store.load_recommendations(workspace)
 
     provider = get_provider(provider_name)
+    company_profile: CompanyProfile | None = load_company_profile(company_id) if company_id else None
     stack = detect_stack(workspace)
     framework_by_language = _framework_map(stack)
 
@@ -126,13 +146,15 @@ def apply_recommendations(project_id: str, provider_name: str | None = None) -> 
         writer = get_writer(component.language)
 
         if rec.decision == "generate":
-            generated = generator.generate_test(component, provider, workspace, framework)
+            generated = generator.generate_test(component, provider, workspace, framework, company_profile)
         else:
             original_test = next((t for t in tests if t.id in rec.related_test_ids), None)
             if original_test is None:
                 updated_recommendations.append(rec)
                 continue
-            generated = generator.improve_test(component, original_test, rec.rationale, provider, workspace, framework)
+            generated = generator.improve_test(
+                component, original_test, rec.rationale, provider, workspace, framework, company_profile
+            )
 
         new_test = writer(workspace, component, generated, framework)
         if rec.decision == "modify":
@@ -175,7 +197,12 @@ def detect_changes(project_id: str) -> list[ChangeRecord]:
     new_components = store.load_components(workspace)
     changes = diff_ast.detect_changes(project_id, old_components, new_components, old_tests, from_commit, to_commit)
     changes = impact.propagate_impact(changes, new_components)
-    store.save_changes(workspace, changes)
+
+    # Append rather than overwrite: churn-based risk prediction (how many
+    # times has this component actually changed?) needs the full history,
+    # not just the latest diff — see risk_prediction/churn_risk.py.
+    history = store.load_changes(workspace)
+    store.save_changes(workspace, history + changes)
 
     log_event(workspace, "changes_detected", from_commit=from_commit, to_commit=to_commit, count=len(changes))
     return changes
@@ -225,6 +252,52 @@ def classify_changed_components(project_id: str, provider_name: str | None = Non
     merged = [r for r in existing if r.component_id not in affected_ids] + new_recommendations
     store.save_recommendations(workspace, merged)
     return new_recommendations
+
+
+@dataclass
+class RiskAssessment:
+    deployment_issues: list[DeploymentIssue]
+    performance_risks: list[PerformanceRisk]
+    predicted_risks: list[PredictedRisk]
+
+
+def assess_risks(project_id: str, company_id: str | None = None) -> RiskAssessment:
+    """Deployment-readiness checks, static performance-risk flags, and
+    defect-proneness prediction (structural code smells + historical
+    modification frequency) — all static, no code execution required.
+    Re-running this on the same project after `detect_changes` has
+    accumulated more history sharpens the churn signal, directly answering
+    "what problems is this codebase likely to face again"."""
+    workspace = load_workspace(project_id)
+    store = JSONFileStore()
+    components = store.load_components(workspace)
+    changes = store.load_changes(workspace)
+
+    company_profile = load_company_profile(company_id) if company_id else None
+    complexity_threshold = company_profile.complexity_risk_threshold if company_profile else 10
+    churn_threshold = company_profile.churn_risk_threshold if company_profile else 3
+
+    deployment_issues = check_deployment_readiness(workspace, project_id, len(components))
+    performance_risks = analyze_performance_risks(components, project_id)
+    predicted_risks = detect_code_smells(
+        components, project_id, god_method_complexity=complexity_threshold
+    ) + compute_churn_risks(changes, components, project_id, high_churn_threshold=churn_threshold)
+
+    store.save_deployment_issues(workspace, deployment_issues)
+    store.save_performance_risks(workspace, performance_risks)
+    store.save_predicted_risks(workspace, predicted_risks)
+
+    log_event(
+        workspace,
+        "risk_assessment_completed",
+        deployment_issues=len(deployment_issues),
+        performance_risks=len(performance_risks),
+        predicted_risks=len(predicted_risks),
+        company_id=company_id,
+    )
+    return RiskAssessment(
+        deployment_issues=deployment_issues, performance_risks=performance_risks, predicted_risks=predicted_risks
+    )
 
 
 def run_tests(project_id: str, language: str = "python") -> RunResult:

@@ -22,6 +22,7 @@ def main() -> None:
     apply_p = sub.add_parser("apply", help="Generate/improve tests for pending recommendations and write them to disk")
     apply_p.add_argument("--project", required=True, help="project_id from a previous `classify` run")
     apply_p.add_argument("--provider", choices=["anthropic", "openai"], help="Override the configured AI provider")
+    apply_p.add_argument("--company", help="Company profile id (app/personalization) to apply style-guide/threshold overrides")
 
     run_p = sub.add_parser("run-tests", help="Execute the target repo's test suite in a sandboxed container")
     run_p.add_argument("--project", required=True, help="project_id from a previous `analyze` run")
@@ -39,6 +40,12 @@ def main() -> None:
     classify_changed_p.add_argument(
         "--provider", choices=["anthropic", "openai"], help="Override the configured AI provider"
     )
+
+    assess_p = sub.add_parser(
+        "assess-risks", help="Deployment-readiness, performance-risk, and defect-proneness prediction (static, no execution)"
+    )
+    assess_p.add_argument("--project", required=True, help="project_id from a previous `analyze` run")
+    assess_p.add_argument("--company", help="Company profile id (app/personalization) to apply threshold overrides")
 
     args = parser.parse_args()
 
@@ -62,7 +69,9 @@ def main() -> None:
             print(f"[{rec.decision.upper():8}] {rec.component_id} (confidence={rec.confidence:.2f}) - {rec.rationale}")
 
     elif args.command == "apply":
-        recommendations = pipeline.apply_recommendations(args.project, provider_name=args.provider)
+        recommendations = pipeline.apply_recommendations(
+            args.project, provider_name=args.provider, company_id=args.company
+        )
         applied = [r for r in recommendations if r.status == "applied"]
         print(f"applied {len(applied)} recommendation(s)")
         for rec in applied:
@@ -89,6 +98,19 @@ def main() -> None:
         print(f"reclassified {len(recommendations)} affected component(s)")
         for rec in recommendations:
             print(f"[{rec.decision.upper():8}] {rec.component_id} (confidence={rec.confidence:.2f}) - {rec.rationale}")
+
+    elif args.command == "assess-risks":
+        assessment = pipeline.assess_risks(args.project, company_id=args.company)
+        print(f"deployment issues: {len(assessment.deployment_issues)}")
+        for issue in assessment.deployment_issues:
+            loc = f"{issue.file_path}:{issue.line}" if issue.line else (issue.file_path or "")
+            print(f"  [{issue.severity.upper():6}] {issue.category} {loc} - {issue.message}")
+        print(f"performance risks: {len(assessment.performance_risks)}")
+        for risk in assessment.performance_risks:
+            print(f"  [{risk.severity.upper():6}] {risk.category} {risk.component_id} - {risk.message}")
+        print(f"predicted risks: {len(assessment.predicted_risks)}")
+        for risk in assessment.predicted_risks:
+            print(f"  [{risk.severity.upper():6}] {risk.category} {risk.component_id} - {risk.message}")
 
 
 if __name__ == "__main__":

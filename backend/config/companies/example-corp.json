@@ -1,0 +1,9 @@
+{
+  "company_id": "example-corp",
+  "display_name": "Example Corp",
+  "style_guide": "Use pytest fixtures instead of manual setup/teardown. Name test functions test_<unit>_<scenario>_<expected>. Prefer parametrized tests over near-duplicate test functions for the same behavior with different inputs.",
+  "preferred_frameworks": { "python": "pytest" },
+  "complexity_risk_threshold": 8,
+  "churn_risk_threshold": 2,
+  "min_confidence_for_auto_apply": 0.8
+}
