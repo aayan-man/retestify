@@ -6,6 +6,10 @@ and existing tests, and uses a pluggable AI Review Engine to decide which
 tests to retain, modify, remove, or generate — with git-aware incremental
 re-analysis, a dashboard, CI/CD hooks, and a research evaluation harness.
 
+New here? See [GETTING_STARTED.md](GETTING_STARTED.md) for a full step-by-step
+setup walkthrough (this README's "Running it" section below is the quick
+reference).
+
 ## Status
 
 All 8 planned phases have an initial implementation:
