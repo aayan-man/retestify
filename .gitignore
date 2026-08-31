@@ -15,3 +15,4 @@ research/evaluation/results/
 
 .env
 *.log
+*.tsbuildinfo

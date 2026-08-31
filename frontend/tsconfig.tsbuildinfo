@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/api/client.ts","./src/components/changetimeline.tsx","./src/components/recommendationcard.tsx","./src/pages/dashboardpage.tsx","./src/pages/recommendationdetailpage.tsx","./src/pages/uploadpage.tsx","./src/types/kb.ts"],"version":"5.9.3"}
