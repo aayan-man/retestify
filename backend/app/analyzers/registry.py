@@ -1,10 +1,21 @@
 from app.repo_manager.workspace import Workspace
 
 from .base import LanguageAnalyzer
+from .cpp.analyzer import CppAnalyzer
+from .csharp.analyzer import CSharpAnalyzer
+from .go.analyzer import GoAnalyzer
+from .java.analyzer import JavaAnalyzer
 from .javascript.analyzer import JSAnalyzer
 from .python.analyzer import PythonAnalyzer
 
-_ANALYZERS: list[LanguageAnalyzer] = [PythonAnalyzer(), JSAnalyzer()]
+_ANALYZERS: list[LanguageAnalyzer] = [
+    PythonAnalyzer(),
+    JSAnalyzer(),
+    JavaAnalyzer(),
+    CppAnalyzer(),
+    GoAnalyzer(),
+    CSharpAnalyzer(),
+]
 
 
 def all_analyzers() -> list[LanguageAnalyzer]:

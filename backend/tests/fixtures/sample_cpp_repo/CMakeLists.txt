@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.14)
+project(sample)
+find_package(GTest REQUIRED)
+add_executable(calc_test calculator.cpp calculator_test.cpp)
+target_link_libraries(calc_test GTest::gtest_main)

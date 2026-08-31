@@ -83,7 +83,7 @@ def test_classify_changed_components_only_touches_affected_ids(tmp_path, monkeyp
         def count_tokens(self, text: str) -> int:
             return 1
 
-    monkeypatch.setattr(pipeline, "get_provider", lambda name=None: FakeProvider())
+    monkeypatch.setattr(pipeline, "require_provider", lambda name=None: FakeProvider())
 
     origin = _init_local_repo(tmp_path)
     workspace = pipeline.ingest_source(github_url=str(origin))

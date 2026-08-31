@@ -17,6 +17,11 @@ required for `run-tests` / coverage — the test runner refuses to execute
 target-repo code on the host if Docker isn't available, by design (see
 README's "Known scope limits").
 
+Java, C++, Go, and C# analysis needs no extra tooling beyond the backend's
+own `pip install` (step 1) — their parsers are `tree-sitter` grammar
+packages, pure Python-installable wheels, not compilers/SDKs for those
+languages.
+
 ## 1. Backend setup
 
 ```bash

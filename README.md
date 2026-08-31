@@ -20,15 +20,22 @@ All 8 planned phases have an initial implementation:
 **Core pipeline (Phases 1-5)**
 - **Repo manager** — ingest from a local directory, `.zip` (zip-slip/size
   guarded), or GitHub URL (shallow clone).
-- **Tech detector** — Python/pytest/unittest and JavaScript-TypeScript/Jest/Mocha.
+- **Tech detector** — Python/pytest/unittest, JavaScript-TypeScript/Jest/Mocha,
+  Java/JUnit, C++/GoogleTest/Catch2, Go/testing, C#/xUnit/NUnit/MSTest.
 - **Static analyzers** (pluggable, `app/analyzers/base.py`) — Python via
   stdlib `ast`; JS/TS via a Node/`@babel/parser` bridge
-  (`app/analyzers/javascript/parser_bridge/parse.js`) emitting the same IR
-  as JSON. Both extract functions/classes/methods with metrics and content
-  hashing.
+  (`app/analyzers/javascript/parser_bridge/parse.js`); Java/C++/Go/C# share
+  one `tree-sitter`-based implementation
+  (`app/analyzers/treesitter/base.py`) with per-language node-type specs
+  (`app/analyzers/{java,cpp,go,csharp}/analyzer.py`). All extract
+  functions/classes/methods with metrics and content hashing.
 - **Test analyzer** — discovers tests and maps them to source components by
   naming convention. Python tests are `test_*` functions; JS/TS tests are
-  `test()`/`it()` calls — handled by each analyzer's own `list_test_cases`.
+  `test()`/`it()` calls; Java/C# tests are methods carrying a test
+  annotation/attribute (`@Test`, `[Fact]`, `[Test]`, `[TestMethod]`); C++
+  tests are `TEST`/`TEST_F`/`TEST_CASE` macro invocations; Go tests are
+  `Test*` functions in `*_test.go` files — each handled by that analyzer's
+  own `list_test_cases`.
 - **Knowledge base** — Component/TestCase/ChangeRecord/Recommendation
   (pydantic), persisted as JSON under `backend/workspace/{project_id}/kb/`.
 
@@ -38,12 +45,18 @@ All 8 planned phases have an initial implementation:
 - `decision_engine` classifies each component's tests as retain/modify/remove
   (or generate, if none are mapped); `generator` writes new/improved tests as
   schema-validated, retry-on-failure structured output.
-- `test_writer/` appends generated code to the conventional test file per
-  language — existing test files are never rewritten in place.
-- `test_runner/` executes the target repo's suite (pytest/Jest) **inside an
-  isolated, network-disabled Docker container**; it fails loudly rather than
-  ever falling back to running untrusted code on the host if Docker isn't
-  available.
+- `test_writer/` writes generated code per language. Python/JS/TS/Go/C++
+  append a free-standing test to the conventional file; Java/C# use
+  `test_writer/common.py::insert_method_into_class` since a bare test
+  method isn't valid outside a class in those languages — it inserts into
+  an existing test class or creates a minimal one. Existing test files are
+  never rewritten in place.
+- `test_runner/` executes the target repo's suite (pytest/Jest today)
+  **inside an isolated, network-disabled Docker container**; it fails
+  loudly rather than ever falling back to running untrusted code on the
+  host if Docker isn't available. Java/C++/Go/C# don't have a registered
+  runner yet — `run_tests()` raises a clear `ValueError` for them rather
+  than silently doing nothing (see Known scope limits).
 - `reporting/audit_log.py` — every recommendation and test-file write is
   logged to `kb/audit_log.jsonl`.
 
@@ -120,6 +133,19 @@ All 8 planned phases have an initial implementation:
   Docker; see docs/PROJECT_GUIDE_QA.md §3).
 - Churn-based risk prediction needs `detect_changes` to have run more than
   once on a project before it has any history to learn from.
+- Java/C++/Go/C# support covers analysis, test discovery, classification,
+  and generation — but not sandboxed execution yet (`run-tests` only has a
+  registered runner for Python/JS today). Adding one is the natural next
+  step (Maven/CTest/`go test -json`/`dotnet test`, each in its own Docker
+  image, following the existing `test_runner/pytest_runner.py` pattern) but
+  wasn't built without a way to verify it end-to-end in this environment.
+- The Go analyzer treats a top-level `struct` as a class-equivalent so
+  method→struct linkage and God-Class detection work, but Go doesn't
+  actually have classes — this is a deliberate approximation, not a claim
+  about Go's type system.
+- Java's test-file placement assumes the common Maven/Gradle
+  `src/main/java` → `src/test/java` layout; repos that don't follow it get
+  a same-directory fallback instead.
 
 ## Running it
 

@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { ChangeTimeline } from "../components/ChangeTimeline";
 import { RecommendationCard } from "../components/RecommendationCard";
+import { RiskPanel } from "../components/RiskPanel";
 import { RecommendationDetailPage } from "./RecommendationDetailPage";
-import type { ChangeRecord, ProjectReport, ProjectSummary, Recommendation } from "../types/kb";
+import type { ChangeRecord, ProjectReport, ProjectSummary, Recommendation, RiskAssessment } from "../types/kb";
 
 interface Props {
   summary: ProjectSummary;
@@ -13,18 +14,29 @@ export function DashboardPage({ summary }: Props) {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [changes, setChanges] = useState<ChangeRecord[]>([]);
   const [report, setReport] = useState<ProjectReport | null>(null);
+  const [risks, setRisks] = useState<RiskAssessment | null>(null);
   const [selected, setSelected] = useState<Recommendation | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
-    const [recs, chgs] = await Promise.all([
+    const [recs, chgs, deploymentIssues, performanceRisks, predictedRisks] = await Promise.all([
       api.listRecommendations(summary.project_id),
       api.listChanges(summary.project_id),
+      api.listDeploymentIssues(summary.project_id),
+      api.listPerformanceRisks(summary.project_id),
+      api.listPredictedRisks(summary.project_id),
     ]);
     setRecommendations(recs);
     setChanges(chgs);
     setReport(await api.getReport(summary.project_id));
+    if (deploymentIssues.length || performanceRisks.length || predictedRisks.length) {
+      setRisks({
+        deployment_issues: deploymentIssues,
+        performance_risks: performanceRisks,
+        predicted_risks: predictedRisks,
+      });
+    }
   }
 
   useEffect(() => {
@@ -71,6 +83,14 @@ export function DashboardPage({ summary }: Props) {
           >
             {busy === "detect" ? "Checking..." : "Detect changes"}
           </button>
+          <button
+            disabled={busy !== null}
+            onClick={() =>
+              runAction("assess", async () => setRisks(await api.assessRisks(summary.project_id)))
+            }
+          >
+            {busy === "assess" ? "Assessing..." : "Assess Risks"}
+          </button>
         </div>
       </header>
 
@@ -101,6 +121,11 @@ export function DashboardPage({ summary }: Props) {
           <ChangeTimeline changes={changes} />
         </section>
       </div>
+
+      <section className="risk-section">
+        <h2>Risk assessment</h2>
+        <RiskPanel assessment={risks} />
+      </section>
 
       {selected && <RecommendationDetailPage recommendation={selected} onClose={() => setSelected(null)} />}
     </div>

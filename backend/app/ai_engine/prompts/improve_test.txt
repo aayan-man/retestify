@@ -16,12 +16,18 @@ $test_source
 Why this test needs improvement:
 $rationale
 
-Write a replacement test function (it may keep the same name or use a new
-one) that addresses the gap above while still covering what the original
-test correctly covered. Include any import statements the test needs at the
-top of the code you return. The code must be syntactically valid and ready
-to append to a $framework test file as-is — do not include markdown code
-fences or commentary outside the code.
+Write a replacement test (it may keep the same name or use a new one) that
+addresses the gap above while still covering what the original test
+correctly covered. Include any import statements the test needs. The code
+must be syntactically valid and ready to insert into a $framework test file
+as-is — do not include markdown code fences or commentary outside the code.
+
+If $framework requires tests to live inside a class (e.g. JUnit, xUnit,
+NUnit, MSTest): write ONLY the test method itself, with its test
+annotation/attribute — no class declaration and no import/using directives
+(illegal inside a class body; use fully-qualified names inline instead).
+If $framework's tests are free-standing (e.g. pytest, Jest, Go testing,
+GoogleTest/Catch2), write the complete test as normal, including imports.
 
 Respond with the test function's name, its full code, and a brief rationale
 for what changed and why.

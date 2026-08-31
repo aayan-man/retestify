@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.ai_engine import decision_engine, generator
-from app.ai_engine.providers.factory import get_provider
+from app.ai_engine.providers.factory import require_provider
 from app.analyzers.registry import detect_all
 from app.change_detector import diff_ast, impact
 from app.deployment_testing.checker import check_deployment_readiness
@@ -106,7 +106,7 @@ def classify_project(project_id: str, provider_name: str | None = None) -> list[
     components = store.load_components(workspace)
     tests = store.load_tests(workspace)
 
-    provider = get_provider(provider_name)
+    provider = require_provider(provider_name)
     recommendations = decision_engine.classify_project(workspace, provider, components, tests)
     store.save_recommendations(workspace, recommendations)
     return recommendations
@@ -128,7 +128,7 @@ def apply_recommendations(
     tests = store.load_tests(workspace)
     recommendations = store.load_recommendations(workspace)
 
-    provider = get_provider(provider_name)
+    provider = require_provider(provider_name)
     company_profile: CompanyProfile | None = load_company_profile(company_id) if company_id else None
     stack = detect_stack(workspace)
     framework_by_language = _framework_map(stack)
@@ -227,7 +227,7 @@ def classify_changed_components(project_id: str, provider_name: str | None = Non
         for cid in t.target_component_ids:
             tests_by_component.setdefault(cid, []).append(t)
 
-    provider = get_provider(provider_name)
+    provider = require_provider(provider_name)
     new_recommendations: list[Recommendation] = []
     for comp_id in affected_ids:
         component = components.get(comp_id)
@@ -329,4 +329,17 @@ def _framework_map(stack: StackProfile) -> dict[str, str]:
             fw = "unknown"
         mapping["javascript"] = fw
         mapping["typescript"] = fw
+    if "java" in stack.languages:
+        mapping["java"] = "junit"
+    if "cpp" in stack.languages:
+        mapping["cpp"] = "catch2" if "catch2" in stack.test_frameworks else "gtest"
+    if "go" in stack.languages:
+        mapping["go"] = "testing"
+    if "csharp" in stack.languages:
+        if "nunit" in stack.test_frameworks:
+            mapping["csharp"] = "nunit"
+        elif "mstest" in stack.test_frameworks:
+            mapping["csharp"] = "mstest"
+        else:
+            mapping["csharp"] = "xunit"
     return mapping

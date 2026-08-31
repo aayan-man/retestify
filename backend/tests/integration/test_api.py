@@ -83,7 +83,7 @@ def test_classify_endpoint_uses_configured_provider(monkeypatch):
         def count_tokens(self, text: str) -> int:
             return 1
 
-    monkeypatch.setattr(pipeline, "get_provider", lambda name=None: FakeProvider())
+    monkeypatch.setattr(pipeline, "require_provider", lambda name=None: FakeProvider())
 
     resp = client.post(
         "/projects/upload",
@@ -117,6 +117,30 @@ def test_unknown_project_returns_404():
     assert resp.status_code == 404
 
 
+def test_apply_without_configured_provider_returns_clean_400_not_500(monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "anthropic_api_key", None)
+    monkeypatch.setattr(settings, "openai_api_key", None)
+    monkeypatch.setattr(settings, "openai_base_url", None)
+
+    resp = client.post(
+        "/projects/upload",
+        files={"file": ("sample.zip", _zip_fixture_bytes(), "application/zip")},
+    )
+    project_id = resp.json()["project_id"]
+    try:
+        apply_resp = client.post(f"/projects/{project_id}/apply")
+        assert apply_resp.status_code == 400
+        assert "not configured" in apply_resp.json()["detail"]
+    finally:
+        import shutil
+
+        from app.repo_manager.workspace import load_workspace
+
+        shutil.rmtree(load_workspace(project_id).root, ignore_errors=True)
+
+
 def test_webhook_push_event_triggers_incremental_analysis(tmp_path, monkeypatch):
     from app.ai_engine.providers.base import LLMMessage, LLMProvider, LLMResponse
 
@@ -140,7 +164,7 @@ def test_webhook_push_event_triggers_incremental_analysis(tmp_path, monkeypatch)
         def count_tokens(self, text: str) -> int:
             return 1
 
-    monkeypatch.setattr(pipeline, "get_provider", lambda name=None: FakeProvider())
+    monkeypatch.setattr(pipeline, "require_provider", lambda name=None: FakeProvider())
 
     origin = tmp_path / "origin"
     origin.mkdir()

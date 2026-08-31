@@ -80,3 +80,38 @@ export interface ProjectReport {
   removed: number;
   generated: number;
 }
+
+export interface DeploymentIssue {
+  id: string;
+  project_id: string;
+  category: "secret_exposure" | "dependency_pinning" | "undocumented_env_var" | "missing_ci_or_container";
+  severity: "low" | "medium" | "high";
+  file_path: string | null;
+  line: number | null;
+  message: string;
+}
+
+export interface PerformanceRisk {
+  id: string;
+  project_id: string;
+  component_id: string;
+  category: "nested_loops" | "high_complexity_hot_path" | "unbounded_recursion";
+  severity: "low" | "medium" | "high";
+  message: string;
+}
+
+export interface PredictedRisk {
+  id: string;
+  project_id: string;
+  component_id: string;
+  category: "god_class" | "god_method" | "long_parameter_list" | "deep_nesting" | "high_churn";
+  severity: "low" | "medium" | "high";
+  message: string;
+  evidence: Record<string, unknown>;
+}
+
+export interface RiskAssessment {
+  deployment_issues: DeploymentIssue[];
+  performance_risks: PerformanceRisk[];
+  predicted_risks: PredictedRisk[];
+}

@@ -12,12 +12,22 @@ Source code:
 $component_source
 ```
 
-Write one well-named test function that exercises this component's behavior,
+Write one well-named test that exercises this component's behavior,
 including a realistic edge case where relevant (e.g. an error path, a
 boundary value, an empty input). Include any import statements the test
-needs at the top of the code you return. The code must be syntactically
-valid and ready to append to a $framework test file as-is — do not include
-markdown code fences or commentary outside the code.
+needs. The code must be syntactically valid and ready to insert into a
+$framework test file as-is — do not include markdown code fences or
+commentary outside the code.
+
+If $framework requires tests to live inside a class (e.g. JUnit, xUnit,
+NUnit, MSTest): write ONLY the test method itself, with its test
+annotation/attribute (e.g. @Test, [Fact]) — no class declaration, no
+package statement, and no import/using directives (those are illegal
+inside a class body in these languages, so if you need a type not already
+implied by the source shown above, reference it by its fully-qualified
+name inline instead of importing it). If $framework's tests are
+free-standing (e.g. pytest, Jest, Go testing, GoogleTest/Catch2), write the
+complete test as normal, including any imports it needs.
 
 Respond with the test function's name, its full code, and a brief rationale
 for what the test covers.

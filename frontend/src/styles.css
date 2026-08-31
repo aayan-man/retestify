@@ -203,3 +203,57 @@ button:disabled {
   top: 1rem;
   right: 1rem;
 }
+
+.risk-section {
+  margin-top: 2rem;
+}
+
+.risk-group {
+  margin-bottom: 1rem;
+}
+
+.risk-group h3 {
+  font-size: 0.95em;
+  color: #9aa0a6;
+  margin-bottom: 0.4rem;
+}
+
+.risk-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.risk-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 0.85em;
+  background: #1a1d23;
+  border: 1px solid #2a2d33;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+}
+
+.severity-badge {
+  font-size: 0.7em;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  color: white;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.risk-location {
+  font-family: monospace;
+  color: #9aa0a6;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.risk-message {
+  color: #e6e6e6;
+}

@@ -33,7 +33,55 @@ def detect_stack(workspace: Workspace) -> StackProfile:
         elif _package_json_has_dep(root, "mocha"):
             frameworks.append("mocha")
 
+    if any((root / m).exists() for m in sig.JAVA_MARKERS) or next(root.rglob("*.java"), None) is not None:
+        languages.append("java")
+        frameworks.append("junit")
+
+    if any((root / m).exists() for m in sig.CPP_MARKERS) or next(root.rglob("*.cpp"), None) is not None:
+        languages.append("cpp")
+        if _cmake_references(root, "gtest") or _cmake_references(root, "GTest"):
+            frameworks.append("gtest")
+        elif _cmake_references(root, "Catch2") or _cmake_references(root, "catch2"):
+            frameworks.append("catch2")
+        else:
+            frameworks.append("gtest")  # most common default; framework detection here is best-effort
+
+    if (root / "go.mod").exists() or next(root.rglob("*.go"), None) is not None:
+        languages.append("go")
+        frameworks.append("testing")
+
+    if next(root.rglob("*.csproj"), None) is not None or next(root.rglob("*.sln"), None) is not None:
+        languages.append("csharp")
+        if _csproj_references(root, "xunit"):
+            frameworks.append("xunit")
+        elif _csproj_references(root, "nunit"):
+            frameworks.append("nunit")
+        elif _csproj_references(root, "mstest"):
+            frameworks.append("mstest")
+        else:
+            frameworks.append("xunit")  # most common default; framework detection here is best-effort
+
     return StackProfile(languages=languages, test_frameworks=frameworks)
+
+
+def _cmake_references(root: Path, needle: str) -> bool:
+    for f in list(root.rglob("CMakeLists.txt"))[:20]:
+        try:
+            if needle in f.read_text(encoding="utf-8", errors="ignore"):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def _csproj_references(root: Path, needle: str) -> bool:
+    for f in list(root.rglob("*.csproj"))[:20]:
+        try:
+            if needle.lower() in f.read_text(encoding="utf-8", errors="ignore").lower():
+                return True
+        except OSError:
+            continue
+    return False
 
 
 def _has_py_files(root: Path) -> bool:
