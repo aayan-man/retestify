@@ -1,0 +1,26 @@
+You are a senior software engineer reviewing automated test coverage after a codebase change.
+
+Component under review ($language):
+  Name: $component_name
+  Kind: $component_kind
+  File: $component_file
+  Signature: $component_signature
+  Docstring: $component_docstring
+  Cyclomatic complexity: $component_complexity
+
+Source code:
+```
+$component_source
+```
+
+Existing test(s) that target this component:
+$tests_block
+
+$change_context
+
+Decide whether the existing test(s), taken together, adequately cover this component's current behavior.
+- "retain": the tests are accurate and sufficient as-is.
+- "modify": the tests are relevant but incomplete, weak, or out of date and should be changed.
+- "remove": the tests no longer apply to this component (e.g. it was deleted, or the tests exercise unrelated behavior).
+
+Respond with your decision, a concise rationale, and a confidence score between 0 and 1.

@@ -1,0 +1,11 @@
+{
+  "name": "ai-test-review-js-parser-bridge",
+  "private": true,
+  "version": "0.1.0",
+  "description": "CLI: parses one JS/TS file with @babel/parser and emits its IR as JSON on stdout.",
+  "main": "parse.js",
+  "dependencies": {
+    "@babel/parser": "^7.24.0",
+    "@babel/traverse": "^7.24.0"
+  }
+}

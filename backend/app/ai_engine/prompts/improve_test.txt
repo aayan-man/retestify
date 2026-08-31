@@ -1,0 +1,27 @@
+You are a senior test engineer improving a weak or outdated automated test.
+
+Target component ($language, $framework):
+  Name: $component_name
+
+Source code:
+```
+$component_source
+```
+
+Existing test ($test_name):
+```
+$test_source
+```
+
+Why this test needs improvement:
+$rationale
+
+Write a replacement test function (it may keep the same name or use a new
+one) that addresses the gap above while still covering what the original
+test correctly covered. Include any import statements the test needs at the
+top of the code you return. The code must be syntactically valid and ready
+to append to a $framework test file as-is — do not include markdown code
+fences or commentary outside the code.
+
+Respond with the test function's name, its full code, and a brief rationale
+for what changed and why.

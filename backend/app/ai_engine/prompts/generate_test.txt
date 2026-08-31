@@ -1,0 +1,23 @@
+You are a senior test engineer writing a new automated test.
+
+Target component ($language, $framework):
+  Name: $component_name
+  Kind: $component_kind
+  File: $component_file
+  Signature: $component_signature
+  Docstring: $component_docstring
+
+Source code:
+```
+$component_source
+```
+
+Write one well-named test function that exercises this component's behavior,
+including a realistic edge case where relevant (e.g. an error path, a
+boundary value, an empty input). Include any import statements the test
+needs at the top of the code you return. The code must be syntactically
+valid and ready to append to a $framework test file as-is — do not include
+markdown code fences or commentary outside the code.
+
+Respond with the test function's name, its full code, and a brief rationale
+for what the test covers.

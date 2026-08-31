@@ -1,0 +1,27 @@
+# Template GitHub Actions workflow for a TARGET repo to adopt, so its own CI
+# triggers incremental analysis on this framework after each push — an
+# alternative to registering a GitHub webhook, useful when the target repo's
+# CI can reach the framework's API but a public webhook endpoint isn't set up.
+#
+# Copy this to the target repo as .github/workflows/ai-test-review.yml and
+# set the AI_TEST_REVIEW_URL and AI_TEST_REVIEW_PROJECT_ID repo secrets/vars.
+
+name: AI Test Review
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  trigger-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Detect changes
+        run: |
+          curl -sf -X POST \
+            "${{ vars.AI_TEST_REVIEW_URL }}/projects/${{ vars.AI_TEST_REVIEW_PROJECT_ID }}/detect-changes"
+
+      - name: Classify changed components
+        run: |
+          curl -sf -X POST \
+            "${{ vars.AI_TEST_REVIEW_URL }}/projects/${{ vars.AI_TEST_REVIEW_PROJECT_ID }}/classify-changed"

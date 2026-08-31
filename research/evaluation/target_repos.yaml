@@ -1,0 +1,16 @@
+# Repos to run the comparative evaluation study against.
+#
+# `path`: local directory or .zip to ingest, OR `github_url`: a repo to clone.
+# `language`: which test runner to use for coverage (python | javascript).
+# `variants`: which arms to run for this repo:
+#   framework       - this project's full AI Review Engine pipeline
+#   manual          - "traditional testing" baseline (no AI, existing tests as-is)
+#   standalone_llm  - bare LLM test generation, no static-analysis context
+#
+# Start with small, well-understood repos — evaluation cost/time scales with
+# component count * number of variants that call an LLM.
+
+repos:
+  - path: ../../backend/tests/fixtures/sample_python_repo
+    language: python
+    variants: [framework, manual, standalone_llm]
