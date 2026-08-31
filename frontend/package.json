@@ -2,6 +2,8 @@
   "name": "ai-test-review-frontend",
   "private": true,
   "version": "0.1.0",
+  "description": "Retestify dashboard — upload a repo, review AI test recommendations, and track changes/coverage.",
+  "keywords": ["testing", "ai", "llm", "dashboard", "test-generation"],
   "type": "module",
   "scripts": {
     "dev": "vite",

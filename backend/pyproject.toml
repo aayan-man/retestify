@@ -1,7 +1,9 @@
 [project]
 name = "ai-test-review-backend"
 version = "0.1.0"
+description = "Retestify backend — AI-driven test case management: static analysis, an AI Review Engine (retain/modify/remove/generate), sandboxed test execution, and git-aware incremental re-analysis."
 requires-python = ">=3.11"
+keywords = ["testing", "ai", "llm", "static-analysis", "test-generation", "pytest", "ci-cd"]
 dependencies = [
     "pydantic>=2.6",
     "pydantic-settings>=2.2",
