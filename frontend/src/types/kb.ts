@@ -59,6 +59,7 @@ export interface Recommendation {
   rationale: string;
   confidence: number;
   status: "pending_review" | "accepted" | "rejected" | "applied";
+  generated_code: string | null;
   generated_test_id: string | null;
 }
 

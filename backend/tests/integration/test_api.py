@@ -52,6 +52,14 @@ def test_upload_zip_analyzes_and_exposes_components_and_tests():
         tests = client.get(f"/projects/{project_id}/tests")
         assert tests.status_code == 200
         assert len(tests.json()) == 3
+
+        download = client.get(f"/projects/{project_id}/download")
+        assert download.status_code == 200
+        assert download.headers["content-type"] == "application/zip"
+        with zipfile.ZipFile(io.BytesIO(download.content)) as zf:
+            names = zf.namelist()
+        assert "calculator.py" in names
+        assert "tests/test_calculator.py" in names
     finally:
         import shutil
 

@@ -54,6 +54,7 @@ export const api = {
   listRecommendations: (projectId: string) =>
     request<Recommendation[]>(`/projects/${projectId}/recommendations`),
   getReport: (projectId: string) => request<ProjectReport>(`/projects/${projectId}/report`),
+  downloadUrl: (projectId: string) => `/projects/${projectId}/download`,
 
   classify: (projectId: string, provider?: string) =>
     request<Recommendation[]>(`/projects/${projectId}/classify`, {

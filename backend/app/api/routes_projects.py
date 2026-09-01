@@ -4,12 +4,14 @@ import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.jobs import pipeline
 from app.jobs.pipeline import AnalysisSummary
 from app.knowledge_base.schema import Component, TestCase
 from app.knowledge_base.store import JSONFileStore
+from app.repo_manager.export import build_zip_bytes
 
 from .deps import get_workspace_or_404
 
@@ -68,3 +70,17 @@ def list_components(project_id: str):
 @router.get("/{project_id}/tests", response_model=list[TestCase])
 def list_tests(project_id: str):
     return JSONFileStore().load_tests(get_workspace_or_404(project_id))
+
+
+@router.get("/{project_id}/download")
+def download_project(project_id: str) -> Response:
+    """Re-zip the project's current workspace (source + any AI-generated
+    test files written into it) so it can be downloaded — the workspace is
+    server-side storage only and otherwise never leaves the backend."""
+    workspace = get_workspace_or_404(project_id)
+    zip_bytes = build_zip_bytes(workspace)
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{project_id}.zip"'},
+    )

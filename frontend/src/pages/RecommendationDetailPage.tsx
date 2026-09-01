@@ -32,6 +32,14 @@ export function RecommendationDetailPage({ recommendation, onClose }: Props) {
         {recommendation.generated_test_id && (
           <p className="muted">Generated test: {recommendation.generated_test_id}</p>
         )}
+        {recommendation.generated_code && (
+          <>
+            <h3>Suggested code</h3>
+            <pre className="code-block">
+              <code>{recommendation.generated_code}</code>
+            </pre>
+          </>
+        )}
       </div>
     </div>
   );

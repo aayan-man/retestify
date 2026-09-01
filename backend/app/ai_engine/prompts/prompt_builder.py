@@ -84,6 +84,7 @@ def build_improvement_prompt(
         language=component.language,
         framework=framework,
         component_name=component.name,
+        component_file=component.file_path,
         component_source=_read_snippet(source_root, component.file_path, component.line_start, component.line_end),
         test_name=test.name,
         test_source=_read_snippet(source_root, test.file_path, test.line_start, test.line_end),

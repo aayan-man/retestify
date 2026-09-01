@@ -54,6 +54,27 @@ button {
   cursor: pointer;
 }
 
+.download-link {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid #444;
+  background: #2a2d33;
+  color: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.code-block {
+  background: #0d0f13;
+  border: 1px solid #2a2d33;
+  border-radius: 6px;
+  padding: 0.75rem;
+  overflow-x: auto;
+  font-size: 0.85em;
+  white-space: pre;
+}
+
 button:disabled {
   opacity: 0.5;
   cursor: default;

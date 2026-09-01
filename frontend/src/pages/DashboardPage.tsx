@@ -91,6 +91,13 @@ export function DashboardPage({ summary }: Props) {
           >
             {busy === "assess" ? "Assessing..." : "Assess Risks"}
           </button>
+          <a
+            className="download-link"
+            href={api.downloadUrl(summary.project_id)}
+            download={`${summary.project_id}.zip`}
+          >
+            Download .zip
+          </a>
         </div>
       </header>
 

@@ -2,6 +2,7 @@ You are a senior test engineer improving a weak or outdated automated test.
 
 Target component ($language, $framework):
   Name: $component_name
+  File: $component_file
 
 Source code:
 ```
@@ -18,9 +19,11 @@ $rationale
 
 Write a replacement test (it may keep the same name or use a new one) that
 addresses the gap above while still covering what the original test
-correctly covered. Include any import statements the test needs. The code
-must be syntactically valid and ready to insert into a $framework test file
-as-is — do not include markdown code fences or commentary outside the code.
+correctly covered. Include any import statements the test needs, importing
+from the same module/file the existing test above imports from — do not
+invent a different module name. The code must be syntactically valid and
+ready to insert into a $framework test file as-is — do not include
+markdown code fences or commentary outside the code.
 
 If $framework requires tests to live inside a class (e.g. JUnit, xUnit,
 NUnit, MSTest): write ONLY the test method itself, with its test
