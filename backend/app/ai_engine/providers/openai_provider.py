@@ -11,6 +11,22 @@ from app.config import settings
 from .base import LLMMessage, LLMProvider, LLMResponse
 
 
+def _to_strict_schema(schema: dict) -> dict:
+    """OpenAI/Groq strict `json_schema` response-format mode requires
+    `additionalProperties: false` on every object node, which pydantic's
+    `model_json_schema()` doesn't set by default — inject it recursively
+    (including into $defs, for nested models)."""
+    if schema.get("type") == "object":
+        schema.setdefault("additionalProperties", False)
+        for prop in schema.get("properties", {}).values():
+            _to_strict_schema(prop)
+    for definition in schema.get("$defs", {}).values():
+        _to_strict_schema(definition)
+    if "items" in schema:
+        _to_strict_schema(schema["items"])
+    return schema
+
+
 class OpenAIProvider(LLMProvider):
     """Targets any OpenAI-compatible chat-completions endpoint. Setting
     `base_url` (e.g. to a local Ollama/vLLM/LM Studio server) plugs in a
@@ -59,7 +75,7 @@ class OpenAIProvider(LLMProvider):
                 "type": "json_schema",
                 "json_schema": {
                     "name": response_schema.__name__,
-                    "schema": response_schema.model_json_schema(),
+                    "schema": _to_strict_schema(response_schema.model_json_schema()),
                     "strict": True,
                 },
             }

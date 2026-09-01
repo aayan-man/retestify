@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -22,8 +23,15 @@ def detect_stack(workspace: Workspace) -> StackProfile:
         languages.append("python")
         if any((root / m).exists() for m in sig.PYTEST_MARKERS) or _has_pytest_import(root):
             frameworks.append("pytest")
-        else:
+        elif _has_unittest_testcase(root):
             frameworks.append("unittest")
+        else:
+            # Plain `def test_*():` functions with bare `assert` statements
+            # — no explicit `import pytest` needed to run under pytest, and
+            # no unittest.TestCase subclass either — are pytest's native
+            # convention, not unittest's, so default here rather than to
+            # unittest (which needs a TestCase to make sense of `self`).
+            frameworks.append("pytest")
 
     if any((root / m).exists() for m in sig.JS_MARKERS):
         is_ts = any((root / m).exists() for m in sig.TS_MARKERS)
@@ -95,6 +103,20 @@ def _has_pytest_import(root: Path) -> bool:
         except OSError:
             continue
         if "import pytest" in text or "from pytest" in text:
+            return True
+    return False
+
+
+_UNITTEST_CLASS_PATTERN = re.compile(r"class\s+\w+\s*\(\s*(?:unittest\.)?TestCase\s*\)")
+
+
+def _has_unittest_testcase(root: Path) -> bool:
+    for f in list(root.rglob("*.py"))[:200]:
+        try:
+            text = f.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        if "import unittest" in text and _UNITTEST_CLASS_PATTERN.search(text):
             return True
     return False
 

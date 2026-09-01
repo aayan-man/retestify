@@ -1,9 +1,16 @@
 import argparse
+import sys
 
 from app.jobs import pipeline
 
 
 def main() -> None:
+    # LLM output can contain Unicode punctuation (e.g. non-breaking hyphens)
+    # that Windows' default console codepage (cp1252) can't encode; fall
+    # back to replacement chars instead of crashing the whole command.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
 
