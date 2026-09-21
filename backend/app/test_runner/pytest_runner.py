@@ -8,7 +8,7 @@ from pathlib import Path
 from app.config import settings
 from app.repo_manager.workspace import Workspace
 
-from .base import RunResult, TestOutcome, TestRunner
+from .base import RunResult, TestOutcome, TestRunner, overall_status
 from .sandbox_exec import run_in_container
 
 
@@ -53,16 +53,24 @@ class PytestRunner(TestRunner):
 
         report_path = workspace.source_dir / report_name
         coverage_path = workspace.source_dir / coverage_name
+        report_missing = not report_path.exists()
         outcomes, totals = _parse_json_report(report_path)
         coverage_percent = _parse_coverage(coverage_path)
 
         report_path.unlink(missing_ok=True)
         coverage_path.unlink(missing_ok=True)
 
-        overall = "passed" if totals["failed"] == 0 and totals["errors"] == 0 else "failed"
+        stderr = proc.stderr[-4000:]
+        if report_missing:
+            stderr = _append_note(
+                stderr,
+                f"pytest produced no JSON report ({report_name}); the suite did not run to "
+                "completion, so this run is reported as an error rather than a pass.",
+            )
+
         return RunResult(
             run_id=run_id,
-            status=overall,
+            status=overall_status(totals),
             total=totals["total"],
             passed=totals["passed"],
             failed=totals["failed"],
@@ -72,8 +80,12 @@ class PytestRunner(TestRunner):
             outcomes=outcomes,
             coverage_percent=coverage_percent,
             stdout=proc.stdout[-4000:],
-            stderr=proc.stderr[-4000:],
+            stderr=stderr,
         )
+
+
+def _append_note(stderr: str, note: str) -> str:
+    return f"{stderr.rstrip()}\n{note}" if stderr.strip() else note
 
 
 def _parse_json_report(path: Path) -> tuple[list[TestOutcome], dict[str, int]]:

@@ -8,7 +8,7 @@ from pathlib import Path
 from app.config import settings
 from app.repo_manager.workspace import Workspace
 
-from .base import RunResult, TestOutcome, TestRunner
+from .base import RunResult, TestOutcome, TestRunner, overall_status
 from .sandbox_exec import run_in_container
 
 
@@ -50,13 +50,21 @@ class JestRunner(TestRunner):
         duration_ms = int((time.monotonic() - start) * 1000)
 
         report_path = workspace.source_dir / report_name
+        report_missing = not report_path.exists()
         outcomes, totals = _parse_jest_report(report_path)
         report_path.unlink(missing_ok=True)
 
-        overall = "passed" if totals["failed"] == 0 and totals["errors"] == 0 else "failed"
+        stderr = proc.stderr[-4000:]
+        if report_missing:
+            stderr = _append_note(
+                stderr,
+                f"jest produced no JSON report ({report_name}); the suite did not run to "
+                "completion, so this run is reported as an error rather than a pass.",
+            )
+
         return RunResult(
             run_id=run_id,
-            status=overall,
+            status=overall_status(totals),
             total=totals["total"],
             passed=totals["passed"],
             failed=totals["failed"],
@@ -66,8 +74,12 @@ class JestRunner(TestRunner):
             outcomes=outcomes,
             coverage_percent=None,  # requires a separate --coverage summary pass; not wired up yet
             stdout=proc.stdout[-4000:],
-            stderr=proc.stderr[-4000:],
+            stderr=stderr,
         )
+
+
+def _append_note(stderr: str, note: str) -> str:
+    return f"{stderr.rstrip()}\n{note}" if stderr.strip() else note
 
 
 def _parse_jest_report(path: Path) -> tuple[list[TestOutcome], dict[str, int]]:

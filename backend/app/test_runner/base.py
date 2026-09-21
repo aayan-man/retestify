@@ -1,10 +1,25 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 
 from pydantic import BaseModel
 
 from app.repo_manager.workspace import Workspace
+
+
+def overall_status(totals: Mapping[str, int]) -> str:
+    """Collapse per-outcome totals into a run status.
+
+    A run that produced no test results at all is "error", never "passed".
+    Zero failures is only good news when something actually ran; an empty
+    report usually means the suite never started (container failure,
+    collection error, missing report file), and calling that a pass is a
+    false green — the worst way for a test tool to be wrong.
+    """
+    if totals["total"] == 0:
+        return "error"
+    return "passed" if totals["failed"] == 0 and totals["errors"] == 0 else "failed"
 
 
 class TestOutcome(BaseModel):
