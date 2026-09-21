@@ -7,6 +7,7 @@ from fastapi import APIRouter, Header, HTTPException, Request
 
 from app.config import settings
 from app.jobs import pipeline
+from app.jobs.queue import JobConflictError, queue
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
@@ -40,6 +41,18 @@ async def github_webhook(
     if x_github_event != "push":
         return {"status": "ignored", "reason": f"event {x_github_event!r} is not a push"}
 
-    changes = pipeline.detect_changes(project_id)
-    recommendations = pipeline.classify_changed_components(project_id)
-    return {"status": "ok", "changes": len(changes), "recommendations": len(recommendations)}
+    # Pulling and reclassifying takes far longer than GitHub's delivery
+    # timeout, so acknowledge the push immediately and do the work in the
+    # background (see app/jobs/queue.py).
+    def run(progress):
+        changes = pipeline.detect_changes(project_id)
+        recommendations = pipeline.classify_changed_components(project_id)
+        return {"changes": len(changes), "recommendations": len(recommendations)}
+
+    try:
+        job = queue.submit(project_id, "webhook_push", run)
+    except JobConflictError as e:
+        # A push landing while the previous one is still being processed is
+        # normal; report it rather than failing the delivery.
+        return {"status": "skipped", "reason": str(e)}
+    return {"status": "accepted", "job_id": job.id}

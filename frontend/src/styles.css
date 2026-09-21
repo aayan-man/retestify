@@ -165,6 +165,31 @@ button:disabled {
   color: #9aa0a6;
 }
 
+.rec-status {
+  font-size: 0.7em;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.rec-status-applied {
+  color: #6abf69;
+}
+
+.rec-status-failed {
+  color: #ef5350;
+}
+
+.rec-status-rejected {
+  color: #9aa0a6;
+}
+
+.report-strip-failed {
+  color: #ef5350;
+}
+
 .change-timeline {
   list-style: none;
   padding: 0;

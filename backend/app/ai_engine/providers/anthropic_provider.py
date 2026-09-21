@@ -23,7 +23,7 @@ class AnthropicProvider(LLMProvider):
     def _client(self):
         import anthropic  # optional dependency; only needed when this provider is used
 
-        return anthropic.Anthropic(api_key=self.api_key)
+        return anthropic.Anthropic(api_key=self.api_key, max_retries=settings.llm_max_retries)
 
     def complete(
         self,

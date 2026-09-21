@@ -45,7 +45,11 @@ class OpenAIProvider(LLMProvider):
     def _client(self):
         import openai  # optional dependency; only needed when this provider is used
 
-        return openai.OpenAI(api_key=self.api_key or "not-needed", base_url=self.base_url)
+        return openai.OpenAI(
+            api_key=self.api_key or "not-needed",
+            base_url=self.base_url,
+            max_retries=settings.llm_max_retries,
+        )
 
     def complete(
         self,

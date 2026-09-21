@@ -4,7 +4,9 @@ import { ChangeTimeline } from "../components/ChangeTimeline";
 import { RecommendationCard } from "../components/RecommendationCard";
 import { RiskPanel } from "../components/RiskPanel";
 import { RecommendationDetailPage } from "./RecommendationDetailPage";
-import type { ChangeRecord, ProjectReport, ProjectSummary, Recommendation, RiskAssessment } from "../types/kb";
+import type { ChangeRecord, Job, ProjectReport, ProjectSummary, Recommendation, RiskAssessment } from "../types/kb";
+
+const JOB_POLL_MS = 1000;
 
 interface Props {
   summary: ProjectSummary;
@@ -17,6 +19,7 @@ export function DashboardPage({ summary }: Props) {
   const [risks, setRisks] = useState<RiskAssessment | null>(null);
   const [selected, setSelected] = useState<Recommendation | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ processed: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
@@ -57,6 +60,38 @@ export function DashboardPage({ summary }: Props) {
     }
   }
 
+  /** Start a background job and poll it to completion, surfacing progress. */
+  async function runJob(name: string, start: () => Promise<Job>) {
+    setBusy(name);
+    setError(null);
+    setProgress(null);
+    try {
+      let job = await start();
+      while (job.status === "queued" || job.status === "running") {
+        await new Promise((resolve) => setTimeout(resolve, JOB_POLL_MS));
+        job = await api.getJob(job.id);
+        setProgress(job.total ? { processed: job.processed, total: job.total } : null);
+      }
+      if (job.status === "failed") {
+        throw new Error(job.error ?? "the job failed without reporting a reason");
+      }
+      await refresh();
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusy(null);
+      setProgress(null);
+    }
+  }
+
+  function label(name: string, idle: string, active: string) {
+    if (busy !== name) return idle;
+    return progress ? `${active} ${progress.processed}/${progress.total}` : active;
+  }
+
+  const appliedCount = recommendations.filter((rec) => rec.status === "applied").length;
+  const failedCount = recommendations.filter((rec) => rec.status === "failed").length;
+
   return (
     <div className="dashboard-page">
       <header className="dashboard-header">
@@ -70,12 +105,12 @@ export function DashboardPage({ summary }: Props) {
         <div className="dashboard-actions">
           <button
             disabled={busy !== null}
-            onClick={() => runAction("classify", () => api.classify(summary.project_id))}
+            onClick={() => runJob("classify", () => api.classify(summary.project_id))}
           >
-            {busy === "classify" ? "Classifying..." : "Classify"}
+            {label("classify", "Classify", "Classifying...")}
           </button>
-          <button disabled={busy !== null} onClick={() => runAction("apply", () => api.apply(summary.project_id))}>
-            {busy === "apply" ? "Applying..." : "Apply pending"}
+          <button disabled={busy !== null} onClick={() => runJob("apply", () => api.apply(summary.project_id))}>
+            {label("apply", "Apply pending", "Applying...")}
           </button>
           <button
             disabled={busy !== null}
@@ -109,6 +144,10 @@ export function DashboardPage({ summary }: Props) {
           <span>Modify: {report.modified}</span>
           <span>Remove: {report.removed}</span>
           <span>Generate: {report.generated}</span>
+          {/* Applying is slow and otherwise leaves the view looking
+              unchanged, so show what it actually did. */}
+          {appliedCount > 0 && <span>Applied: {appliedCount}</span>}
+          {failedCount > 0 && <span className="report-strip-failed">Failed: {failedCount}</span>}
         </div>
       )}
 

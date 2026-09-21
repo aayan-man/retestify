@@ -75,6 +75,14 @@ All 8 planned phases have an initial implementation:
 **Dashboard, CI/CD, monitoring (Phase 7)**
 - `app/main.py` + `app/api/` — a FastAPI backend wrapping the pipeline
   (projects, recommendations, changes, runs, reports, webhooks).
+- `app/jobs/queue.py` — the slow calls (`classify`, `apply`, and the
+  webhook's pull-and-reclassify) return `202` with a job id and run on a
+  background thread pool; clients poll `GET /jobs/{id}` for status and
+  `processed`/`total` progress. Applying routinely runs for minutes, so
+  holding the request open risked a proxy or browser timeout discarding a
+  whole paid-for run — and GitHub's delivery timeout is far shorter than a
+  reclassify takes. One job at a time per project, since the knowledge base
+  is JSON files that concurrent runs would interleave writes into.
 - `app/api/routes_webhooks.py` — a per-project GitHub webhook
   (`/webhooks/github/{project_id}`) with HMAC signature verification that
   triggers incremental detect-changes + classify-changed on push.
@@ -123,8 +131,15 @@ All 8 planned phases have an initial implementation:
 
 ## Known scope limits
 
-- API endpoints run pipeline calls synchronously (no job queue) — fine for a
-  research prototype, worth revisiting before any real multi-user deployment.
+- The job queue (`app/jobs/queue.py`) is in-process: job records live in
+  memory, so a restart loses job *history* and running more than one worker
+  process would give each its own queue. Results themselves are always
+  persisted to the knowledge base by the pipeline, so a lost job record
+  never means lost work. A shared broker would be the next step for a
+  multi-process deployment.
+- `detect-changes`, `assess-risks` and `run-tests` are still synchronous
+  API calls; they're much shorter than classify/apply, but `run-tests` in
+  particular could join the queue if suites get slow.
 - The standalone-LLM baseline doesn't write/execute generated tests, so its
   coverage-delta metric is intentionally left unset (see its docstring).
 - `accuracy` in the evaluation harness requires a human-labeled ground-truth

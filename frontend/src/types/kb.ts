@@ -58,9 +58,21 @@ export interface Recommendation {
   decision: "retain" | "modify" | "remove" | "generate";
   rationale: string;
   confidence: number;
-  status: "pending_review" | "accepted" | "rejected" | "applied";
+  status: "pending_review" | "accepted" | "rejected" | "applied" | "failed";
   generated_code: string | null;
   generated_test_id: string | null;
+  failure_reason: string | null;
+}
+
+export interface Job {
+  id: string;
+  project_id: string;
+  kind: string;
+  status: "queued" | "running" | "succeeded" | "failed";
+  processed: number;
+  total: number | null;
+  error: string | null;
+  result: Record<string, number> | null;
 }
 
 export interface ProjectSummary {

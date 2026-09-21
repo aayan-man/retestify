@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -28,6 +30,11 @@ from app.repo_manager.workspace import Workspace, load_workspace
 from app.risk_prediction.churn_risk import compute_churn_risks
 from app.risk_prediction.pattern_detector import detect_code_smells
 from app.tech_detector.detector import StackProfile, detect_stack
+
+logger = logging.getLogger(__name__)
+
+# Called with (processed, total) as a long-running call advances.
+ProgressCallback = Callable[[int, int], None]
 from app.test_analyzer.discover import extract_test_cases
 from app.test_analyzer.mapper import map_components_to_tests
 from app.test_runner.base import RunResult
@@ -113,7 +120,10 @@ def classify_project(project_id: str, provider_name: str | None = None) -> list[
 
 
 def apply_recommendations(
-    project_id: str, provider_name: str | None = None, company_id: str | None = None
+    project_id: str,
+    provider_name: str | None = None,
+    company_id: str | None = None,
+    progress: ProgressCallback | None = None,
 ) -> list[Recommendation]:
     """For each pending "generate" or "modify" recommendation, have the AI
     engine write a test to disk (as a new test function — existing test
@@ -121,7 +131,11 @@ def apply_recommendations(
 
     `company_id`, if given, loads a CompanyProfile (see app/personalization)
     whose style_guide is injected into the generation/improvement prompts —
-    the personalization lever for per-organization conventions."""
+    the personalization lever for per-organization conventions.
+
+    `progress(processed, total)` is called after each recommendation the
+    engine actually works on, so a caller running this as a background job
+    can report how far along it is."""
     workspace = load_workspace(project_id)
     store = JSONFileStore()
     components_by_id = {c.id: c for c in store.load_components(workspace)}
@@ -136,6 +150,17 @@ def apply_recommendations(
     updated_recommendations: list[Recommendation] = []
     all_tests: list[TestCase] = list(tests)
 
+    actionable = sum(
+        1
+        for rec in recommendations
+        if rec.status == "pending_review"
+        and rec.decision in ("generate", "modify")
+        and rec.component_id in components_by_id
+    )
+    processed = 0
+    if progress is not None:
+        progress(0, actionable)
+
     for rec in recommendations:
         component = components_by_id.get(rec.component_id)
         if component is None or rec.status != "pending_review" or rec.decision not in ("generate", "modify"):
@@ -145,18 +170,35 @@ def apply_recommendations(
         framework = framework_by_language.get(component.language, "unknown")
         writer = get_writer(component.language)
 
-        if rec.decision == "generate":
-            generated = generator.generate_test(component, provider, workspace, framework, company_profile)
-        else:
-            original_test = next((t for t in tests if t.id in rec.related_test_ids), None)
-            if original_test is None:
-                updated_recommendations.append(rec)
-                continue
-            generated = generator.improve_test(
-                component, original_test, rec.rationale, provider, workspace, framework, company_profile
-            )
+        try:
+            if rec.decision == "generate":
+                generated = generator.generate_test(component, provider, workspace, framework, company_profile)
+            else:
+                original_test = next((t for t in tests if t.id in rec.related_test_ids), None)
+                if original_test is None:
+                    updated_recommendations.append(rec)
+                    processed += 1
+                    if progress is not None:
+                        progress(processed, actionable)
+                    continue
+                generated = generator.improve_test(
+                    component, original_test, rec.rationale, provider, workspace, framework, company_profile
+                )
 
-        new_test = writer(workspace, component, generated, framework)
+            new_test = writer(workspace, component, generated, framework)
+        except Exception as e:
+            # One component the model can't write a usable test for must not
+            # discard the tests already generated in this run — applying is a
+            # long, paid-for loop and results are only persisted after it.
+            logger.warning("Could not apply recommendation %s (%s): %s", rec.id, rec.component_id, e)
+            updated_recommendations.append(
+                rec.model_copy(update={"status": "failed", "failure_reason": str(e)})
+            )
+            processed += 1
+            if progress is not None:
+                progress(processed, actionable)
+            continue
+
         if rec.decision == "modify":
             new_test = new_test.model_copy(update={"origin": "ai_modified"})
         all_tests.append(new_test)
@@ -173,6 +215,9 @@ def apply_recommendations(
             origin=new_test.origin,
             file_path=new_test.file_path,
         )
+        processed += 1
+        if progress is not None:
+            progress(processed, actionable)
 
     store.save_tests(workspace, all_tests)
     store.save_recommendations(workspace, updated_recommendations)

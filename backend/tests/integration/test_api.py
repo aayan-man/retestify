@@ -100,14 +100,18 @@ def test_classify_endpoint_uses_configured_provider(monkeypatch):
     project_id = resp.json()["project_id"]
     try:
         classify_resp = client.post(f"/projects/{project_id}/classify")
-        assert classify_resp.status_code == 200
-        recommendations = classify_resp.json()
-        assert len(recommendations) > 0
-        assert all(r["decision"] in ("retain", "modify", "remove", "generate") for r in recommendations)
+        assert classify_resp.status_code == 202
+        assert classify_resp.headers["Location"] == f"/jobs/{classify_resp.json()['id']}"
+
+        job = _await_job(classify_resp.json()["id"])
+        assert job["status"] == "succeeded", job["error"]
 
         listed = client.get(f"/projects/{project_id}/recommendations")
         assert listed.status_code == 200
-        assert len(listed.json()) == len(recommendations)
+        recommendations = listed.json()
+        assert len(recommendations) > 0
+        assert all(r["decision"] in ("retain", "modify", "remove", "generate") for r in recommendations)
+        assert job["result"]["recommendations"] == len(recommendations)
 
         report = client.get(f"/projects/{project_id}/report")
         assert report.status_code == 200
@@ -118,6 +122,22 @@ def test_classify_endpoint_uses_configured_provider(monkeypatch):
         from app.repo_manager.workspace import load_workspace
 
         shutil.rmtree(load_workspace(project_id).root, ignore_errors=True)
+
+
+def _await_job(job_id: str, timeout_s: float = 30.0) -> dict:
+    """Poll a background job to completion. Classify/apply return 202 and a
+    job id rather than blocking the request for the length of the run."""
+    import time
+
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        resp = client.get(f"/jobs/{job_id}")
+        assert resp.status_code == 200
+        job = resp.json()
+        if job["status"] in ("succeeded", "failed"):
+            return job
+        time.sleep(0.05)
+    raise AssertionError(f"job {job_id} did not finish within {timeout_s}s")
 
 
 def test_unknown_project_returns_404():
@@ -197,9 +217,13 @@ def test_webhook_push_event_triggers_incremental_analysis(tmp_path, monkeypatch)
         )
         assert webhook_resp.status_code == 200
         body = webhook_resp.json()
-        assert body["status"] == "ok"
-        assert body["changes"] == 1
-        assert body["recommendations"] == 1
+        # The push is acknowledged immediately — pulling and reclassifying
+        # takes longer than GitHub's delivery timeout allows.
+        assert body["status"] == "accepted"
+
+        job = _await_job(body["job_id"])
+        assert job["status"] == "succeeded", job["error"]
+        assert job["result"] == {"changes": 1, "recommendations": 1}
     finally:
         import shutil
 

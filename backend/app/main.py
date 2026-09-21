@@ -6,6 +6,7 @@ from app.ai_engine.providers.errors import ProviderNotConfiguredError
 from app.api import (
     routes_changes,
     routes_companies,
+    routes_jobs,
     routes_projects,
     routes_recommendations,
     routes_reports,
@@ -14,6 +15,7 @@ from app.api import (
     routes_webhooks,
 )
 from app.git_integration.repo import NotAGitRepoError
+from app.jobs.queue import JobConflictError
 
 app = FastAPI(title="Retestify")
 
@@ -40,6 +42,13 @@ async def not_a_git_repo_handler(request: Request, exc: NotAGitRepoError) -> JSO
     return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
+@app.exception_handler(JobConflictError)
+async def job_conflict_handler(request: Request, exc: JobConflictError) -> JSONResponse:
+    # Only one job per project, since concurrent runs would interleave
+    # writes into the same knowledge-base files.
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
 @app.exception_handler(FileNotFoundError)
 async def workspace_not_found_handler(request: Request, exc: FileNotFoundError) -> JSONResponse:
     return JSONResponse(status_code=404, content={"detail": str(exc)})
@@ -51,6 +60,7 @@ async def bad_request_handler(request: Request, exc: ValueError) -> JSONResponse
 
 app.include_router(routes_projects.router)
 app.include_router(routes_recommendations.router)
+app.include_router(routes_jobs.router)
 app.include_router(routes_runs.router)
 app.include_router(routes_changes.router)
 app.include_router(routes_reports.router)

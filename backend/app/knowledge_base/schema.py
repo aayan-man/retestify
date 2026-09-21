@@ -145,7 +145,12 @@ class Recommendation(BaseModel):
     prompt_template: str | None = None
     generated_code: str | None = None
     generated_test_id: str | None = None
-    status: Literal["pending_review", "accepted", "rejected", "applied"] = "pending_review"
+    status: Literal["pending_review", "accepted", "rejected", "applied", "failed"] = "pending_review"
+    # Why this recommendation couldn't be applied (set only when status is
+    # "failed") — e.g. the model never returned usable code. Kept so one bad
+    # generation is visible rather than silently indistinguishable from a
+    # recommendation nobody has got to yet.
+    failure_reason: str | None = None
     created_at: datetime = Field(default_factory=utcnow)
     reviewed_by: str | None = None
     linked_run_id: str | None = None

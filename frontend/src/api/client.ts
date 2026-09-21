@@ -2,6 +2,7 @@ import type {
   ChangeRecord,
   Component,
   DeploymentIssue,
+  Job,
   PerformanceRisk,
   PredictedRisk,
   ProjectReport,
@@ -56,16 +57,20 @@ export const api = {
   getReport: (projectId: string) => request<ProjectReport>(`/projects/${projectId}/report`),
   downloadUrl: (projectId: string) => `/projects/${projectId}/download`,
 
+  // Classify and apply are one LLM call per component and can run for
+  // minutes, so the API starts a background job and we poll it rather than
+  // holding a request open long enough for a proxy to time it out.
   classify: (projectId: string, provider?: string) =>
-    request<Recommendation[]>(`/projects/${projectId}/classify`, {
+    request<Job>(`/projects/${projectId}/classify`, {
       method: "POST",
       body: JSON.stringify({ provider: provider ?? null }),
     }),
   apply: (projectId: string, provider?: string, companyId?: string) =>
-    request<Recommendation[]>(`/projects/${projectId}/apply`, {
+    request<Job>(`/projects/${projectId}/apply`, {
       method: "POST",
       body: JSON.stringify({ provider: provider ?? null, company_id: companyId ?? null }),
     }),
+  getJob: (jobId: string) => request<Job>(`/jobs/${jobId}`),
   detectChanges: (projectId: string) =>
     request<ChangeRecord[]>(`/projects/${projectId}/detect-changes`, { method: "POST" }),
 

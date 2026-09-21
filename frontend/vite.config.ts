@@ -6,6 +6,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/projects": "http://localhost:8000",
+      "/jobs": "http://localhost:8000",
       "/webhooks": "http://localhost:8000",
       "/health": "http://localhost:8000",
     },
