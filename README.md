@@ -51,6 +51,14 @@ All 8 planned phases have an initial implementation:
   method isn't valid outside a class in those languages — it inserts into
   an existing test class or creates a minimal one. Existing test files are
   never rewritten in place.
+- Each generated test brings its own imports, so `test_writer/
+  python_imports.py` strips the ones the target file already has before
+  appending — otherwise a file accumulates one `import pytest` per
+  generated test (a real run reached twenty). It only drops a statement
+  when every name it binds is already available, leaves imports scoped
+  inside functions alone, and never touches the rest of the block, so
+  comments and formatting survive. Python only; the other languages still
+  append verbatim.
 - `test_runner/` executes the target repo's suite (pytest/Jest today)
   **inside an isolated, network-disabled Docker container**; it fails
   loudly rather than ever falling back to running untrusted code on the

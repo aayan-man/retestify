@@ -8,6 +8,7 @@ from app.knowledge_base.schema import Component, TestCase
 from app.repo_manager.workspace import Workspace
 
 from .common import append_test_block
+from .python_imports import strip_redundant_imports
 
 
 def target_test_file(workspace: Workspace, component: Component) -> Path:
@@ -33,15 +34,19 @@ def write_generated_test(
     creating it if needed, and return the TestCase record for it.
 
     The generated code is expected to include any imports it needs (the
-    generation prompt asks for this) — appending several generated
-    functions to the same file may duplicate an import line, which is
-    syntactically harmless and left as-is for this prototype.
+    generation prompt asks for this), so imports the target file already
+    has are stripped before appending — otherwise a file accumulates one
+    `import pytest` per generated test.
     """
     test_file = target_test_file(workspace, component)
-    start_line, end_line = append_test_block(test_file, generated.code)
+    existing = test_file.read_text(encoding="utf-8") if test_file.exists() else ""
+    code = strip_redundant_imports(generated.code, existing)
+    start_line, end_line = append_test_block(test_file, code)
 
     rel_path = test_file.relative_to(workspace.source_dir).as_posix()
-    body_hash = "sha256:" + hashlib.sha256((generated.code.strip() + "\n").encode("utf-8")).hexdigest()
+    # Hash what was actually written, not the model's raw suggestion, so the
+    # record matches the file on disk.
+    body_hash = "sha256:" + hashlib.sha256((code.strip() + "\n").encode("utf-8")).hexdigest()
 
     return TestCase(
         id=f"py:{rel_path}:{generated.test_name}:{start_line}",
