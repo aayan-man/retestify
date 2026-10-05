@@ -135,3 +135,89 @@ def test_parse_coverage_reads_percent_covered(tmp_path: Path):
 
 def test_parse_coverage_missing_file_returns_none(tmp_path: Path):
     assert _parse_coverage(tmp_path / "missing.json") is None
+
+
+def test_runner_image_tag_is_stable_and_differs_per_base_image():
+    """A new base image must produce a new tag, or changing
+    APP_TEST_RUNNER_DOCKER_IMAGE_PYTHON would silently reuse an image built
+    from the old one."""
+    tag = sandbox_exec.runner_image_tag("python:3.11-slim", "pytest")
+
+    assert tag == sandbox_exec.runner_image_tag("python:3.11-slim", "pytest")
+    assert tag != sandbox_exec.runner_image_tag("python:3.12-slim", "pytest")
+    assert tag != sandbox_exec.runner_image_tag("python:3.11-slim", "jest")
+    # Must be a legal docker tag: one colon, no path separators.
+    assert tag.count(":") == 1 and "/" not in tag
+
+
+def test_existing_runner_image_is_not_rebuilt(monkeypatch):
+    monkeypatch.setattr(sandbox_exec, "docker_unavailable_reason", lambda: None)
+    monkeypatch.setattr(sandbox_exec, "_image_exists", lambda tag: True)
+    monkeypatch.setattr(
+        sandbox_exec.subprocess, "run", lambda *a, **k: pytest.fail("should not rebuild an existing image")
+    )
+
+    assert sandbox_exec.ensure_runner_image("tag:1", "FROM x") == "tag:1"
+
+
+def test_missing_runner_image_is_built(monkeypatch):
+    calls = []
+    monkeypatch.setattr(sandbox_exec, "docker_unavailable_reason", lambda: None)
+    monkeypatch.setattr(sandbox_exec, "_image_exists", lambda tag: False)
+
+    def fake_run(cmd, **kwargs):
+        calls.append((cmd, kwargs.get("input")))
+        return subprocess.CompletedProcess(cmd, 0, "sha256:abc", "")
+
+    monkeypatch.setattr(sandbox_exec.subprocess, "run", fake_run)
+
+    assert sandbox_exec.ensure_runner_image("tag:1", "FROM base") == "tag:1"
+    cmd, dockerfile = calls[0]
+    assert cmd[:3] == ["docker", "build", "-q"] and cmd[-1] == "-"
+    assert dockerfile == "FROM base", "the Dockerfile must be piped in on stdin"
+
+
+def test_failed_image_build_raises_rather_than_running_without_tooling(monkeypatch):
+    """The whole point of the image is that the tooling cannot be installed
+    during a network-isolated run, so a failed build must stop the run."""
+    monkeypatch.setattr(sandbox_exec, "docker_unavailable_reason", lambda: None)
+    monkeypatch.setattr(sandbox_exec, "_image_exists", lambda tag: False)
+    monkeypatch.setattr(
+        sandbox_exec.subprocess,
+        "run",
+        lambda *a, **k: subprocess.CompletedProcess(a[0], 1, "", "no space left on device"),
+    )
+
+    with pytest.raises(ContainerExecutionError, match="network access"):
+        sandbox_exec.ensure_runner_image("tag:1", "FROM base")
+
+
+def test_image_build_refuses_when_docker_is_unusable(monkeypatch):
+    monkeypatch.setattr(sandbox_exec, "docker_unavailable_reason", lambda: "daemon down")
+
+    with pytest.raises(DockerUnavailableError, match="daemon down"):
+        sandbox_exec.ensure_runner_image("tag:1", "FROM base")
+
+
+def _code_without_comments(func) -> str:
+    import inspect
+
+    return chr(10).join(
+        line for line in inspect.getsource(func).splitlines() if not line.lstrip().startswith("#")
+    )
+
+
+def test_runners_do_not_install_tooling_at_run_time():
+    """Regression guard: an install inside the run can never succeed, because
+    run_in_container disables networking. Comments are stripped first, since
+    they legitimately mention the commands being avoided."""
+    from app.test_runner import jest_runner, pytest_runner
+
+    assert "pip install" not in _code_without_comments(pytest_runner.PytestRunner.run)
+    assert "npm install" not in _code_without_comments(jest_runner.JestRunner.run)
+
+
+def test_container_runs_stay_network_isolated_by_default():
+    import inspect
+
+    assert inspect.signature(sandbox_exec.run_in_container).parameters["network"].default == "none"

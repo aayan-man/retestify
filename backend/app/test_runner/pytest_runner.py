@@ -9,7 +9,15 @@ from app.config import settings
 from app.repo_manager.workspace import Workspace
 
 from .base import RunResult, TestOutcome, TestRunner, overall_status
-from .sandbox_exec import run_in_container
+from .sandbox_exec import ensure_runner_image, run_in_container, runner_image_tag
+
+
+# pytest-json-report gives a machine-readable per-test breakdown, and
+# coverage supplies the before/after percentages the evaluation harness
+# compares. Pinned loosely so a rebuild picks up fixes.
+PYTEST_RUNNER_DOCKERFILE = """FROM {base}
+RUN pip install --no-cache-dir pytest pytest-json-report coverage
+"""
 
 
 class PytestRunner(TestRunner):
@@ -24,18 +32,23 @@ class PytestRunner(TestRunner):
         coverage_name = f"{report_name}.coverage.json"
         target_args = " ".join(targets) if targets else "."
 
+        # The tooling is baked into the image at build time. Installing it
+        # here instead could never work: the run is network-isolated, so pip
+        # cannot reach PyPI from inside it.
         command = [
             "sh",
             "-c",
-            "pip install -q pytest pytest-json-report coverage >/dev/null 2>&1 && "
             f"coverage run -m pytest {target_args} --json-report --json-report-file={report_name} -q; "
             f"coverage json -o {coverage_name} --quiet || true",
         ]
 
         start = time.monotonic()
         try:
+            image = ensure_runner_image(
+                runner_image_tag(self.image, "pytest"), PYTEST_RUNNER_DOCKERFILE.format(base=self.image)
+            )
             proc = run_in_container(
-                image=self.image, workspace_dir=workspace.source_dir, command=command, timeout_s=timeout_s
+                image=image, workspace_dir=workspace.source_dir, command=command, timeout_s=timeout_s
             )
         except Exception as e:
             return RunResult(

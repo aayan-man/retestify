@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -7,6 +8,7 @@ from pathlib import Path
 DEFAULT_MEMORY = "512m"
 DEFAULT_CPUS = "1"
 DAEMON_PROBE_TIMEOUT_S = 15
+IMAGE_BUILD_TIMEOUT_S = 600
 
 # `docker run` uses 125 when the run itself failed (unreachable daemon, bad
 # image), 126/127 when the container started but the command couldn't be
@@ -56,6 +58,63 @@ def docker_unavailable_reason() -> str | None:
 
 def docker_available() -> bool:
     return docker_unavailable_reason() is None
+
+
+def _image_exists(tag: str) -> bool:
+    try:
+        proc = subprocess.run(
+            ["docker", "image", "inspect", tag],
+            capture_output=True,
+            text=True,
+            timeout=DAEMON_PROBE_TIMEOUT_S,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return proc.returncode == 0
+
+
+def ensure_runner_image(tag: str, dockerfile: str) -> str:
+    """Build, once, an image with the test tooling already installed.
+
+    The suite itself must run with networking disabled, but the tooling has
+    to come from somewhere -- and installing it from inside the sandboxed
+    run can never work, because that run has no network. Baking it in here
+    is what makes the two requirements compatible: the build has a network,
+    the test execution does not.
+
+    Returns the tag, so callers can use the result directly as the image to
+    run. Raises DockerUnavailableError if Docker isn't usable, or
+    ContainerExecutionError if the build fails.
+    """
+    reason = docker_unavailable_reason()
+    if reason is not None:
+        raise DockerUnavailableError(reason)
+
+    if _image_exists(tag):
+        return tag
+
+    proc = subprocess.run(
+        ["docker", "build", "-q", "-t", tag, "-"],
+        input=dockerfile,
+        capture_output=True,
+        text=True,
+        timeout=IMAGE_BUILD_TIMEOUT_S,
+    )
+    if proc.returncode != 0:
+        raise ContainerExecutionError(
+            f"could not build the test-runner image {tag!r} (docker build exited "
+            f"{proc.returncode}). This build needs network access, unlike the test "
+            f"run itself: {proc.stderr.strip()}"
+        )
+    return tag
+
+
+def runner_image_tag(base_image: str, suffix: str) -> str:
+    """A stable tag derived from the base image, so changing
+    APP_TEST_RUNNER_DOCKER_IMAGE_* builds a new image instead of silently
+    reusing one built from the old base."""
+    slug = re.sub(r"[^a-zA-Z0-9_.-]", "-", base_image).strip("-").lower()
+    return f"retestify-runner:{slug}-{suffix}"
 
 
 def run_in_container(

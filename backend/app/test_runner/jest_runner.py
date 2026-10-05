@@ -9,7 +9,12 @@ from app.config import settings
 from app.repo_manager.workspace import Workspace
 
 from .base import RunResult, TestOutcome, TestRunner, overall_status
-from .sandbox_exec import run_in_container
+from .sandbox_exec import ensure_runner_image, run_in_container, runner_image_tag
+
+
+JEST_RUNNER_DOCKERFILE = """FROM {base}
+RUN npm install -g --no-audit --no-fund jest
+"""
 
 
 class JestRunner(TestRunner):
@@ -23,17 +28,23 @@ class JestRunner(TestRunner):
         report_name = f".ai_test_review_report_{run_id}.json"
         target_args = " ".join(targets) if targets else ""
 
+        # jest is baked into the image; `npm install` here could not reach
+        # the registry from a network-isolated run. A target repo whose tests
+        # import its own dependencies still needs those vendored into the
+        # workspace -- see the runner's module docstring.
         command = [
             "sh",
             "-c",
-            "npm install --no-audit --no-fund -q >/dev/null 2>&1; "
-            f"npx --yes jest {target_args} --json --outputFile={report_name} || true",
+            f"jest {target_args} --json --outputFile={report_name} || true",
         ]
 
         start = time.monotonic()
         try:
+            image = ensure_runner_image(
+                runner_image_tag(self.image, "jest"), JEST_RUNNER_DOCKERFILE.format(base=self.image)
+            )
             proc = run_in_container(
-                image=self.image, workspace_dir=workspace.source_dir, command=command, timeout_s=timeout_s
+                image=image, workspace_dir=workspace.source_dir, command=command, timeout_s=timeout_s
             )
         except Exception as e:
             return RunResult(
