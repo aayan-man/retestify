@@ -1,0 +1,62 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Breakpoints work in routes, the pipeline and the AI engine.
+      // --reload is deliberately omitted: the reloader runs the app in a
+      // child process the debugger doesn't attach to.
+      "name": "API (uvicorn)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["app.main:app", "--host", "127.0.0.1", "--port", "8000"],
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "CLI: analyze sample fixture",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "app.cli",
+      "args": ["analyze", "--path", "tests/fixtures/sample_python_repo"],
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "CLI: run-tests (prompts for project id)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "app.cli",
+      "args": ["run-tests", "--project", "${input:projectId}"],
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Dashboard (Chrome)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/frontend/src",
+      "preLaunchTask": "frontend: dev server"
+    }
+  ],
+  "compounds": [
+    {
+      // Starts the API under the debugger, the Vite dev server as a task,
+      // and opens the dashboard.
+      "name": "Run everything (API + dashboard)",
+      "configurations": ["API (uvicorn)", "Dashboard (Chrome)"],
+      "stopAll": true
+    }
+  ],
+  "inputs": [
+    {
+      "id": "projectId",
+      "type": "promptString",
+      "description": "project_id from a previous analyze run"
+    }
+  ]
+}

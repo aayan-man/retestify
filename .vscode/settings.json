@@ -1,0 +1,29 @@
+{
+  // Point VS Code at the backend venv so imports resolve and the test
+  // explorer uses the same interpreter the CLI does.
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
+
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  // pytest's config (pythonpath, testpaths) lives in backend/pyproject.toml,
+  // so it has to run from backend/.
+  "python.testing.cwd": "${workspaceFolder}/backend",
+  "python.testing.pytestArgs": [],
+
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.egg-info": true,
+    "**/.pytest_cache": true
+  },
+  // Ingested target repos live here; they are gitignored and noisy to search.
+  "search.exclude": {
+    "**/backend/workspace": true,
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.venv": true
+  },
+
+  "[python]": { "editor.rulers": [110] },
+  "[typescript]": { "editor.defaultFormatter": "vscode.typescript-language-features" },
+  "[typescriptreact]": { "editor.defaultFormatter": "vscode.typescript-language-features" }
+}
