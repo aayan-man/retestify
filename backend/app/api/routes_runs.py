@@ -9,5 +9,5 @@ router = APIRouter(prefix="/projects", tags=["runs"])
 
 
 @router.post("/{project_id}/run-tests", response_model=RunResult)
-def run_tests(project_id: str, language: str = "python"):
+def run_tests(project_id: str, language: str | None = None):
     return pipeline.run_tests(project_id, language=language)

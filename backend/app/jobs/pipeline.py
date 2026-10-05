@@ -346,15 +346,67 @@ def assess_risks(project_id: str, company_id: str | None = None) -> RiskAssessme
     )
 
 
-def run_tests(project_id: str, language: str = "python") -> RunResult:
+def resolve_runner_stack(stack: StackProfile) -> tuple[str, str | None]:
+    """Pick the (language, framework) pair to execute for this project.
+
+    Both matter: one language can have several frameworks that need
+    different commands, so passing the detected framework through lets the
+    registry choose jest vs vitest rather than guessing.
+    """
+    language = default_test_language(stack)
+    for framework in stack.test_frameworks:
+        try:
+            get_runner(language, framework)
+        except ValueError:
+            continue
+        return language, framework
+    return language, None
+
+
+def default_test_language(stack: StackProfile) -> str:
+    """Pick a detected language that actually has a registered runner.
+
+    Callers used to default to "python", which silently ran pytest against
+    a TypeScript project and reported "no tests ran" -- a confusing result
+    that looked like the project had no tests rather than like the wrong
+    runner had been used.
+    """
+    if not stack.test_frameworks:
+        raise ValueError(
+            f"no test framework detected in this project (languages: {stack.languages or 'none'}). "
+            "Install and configure one (pytest for Python, jest for JS/TS) so there is a suite to run."
+        )
+    last_error: ValueError | None = None
+    for language in stack.languages:
+        try:
+            get_runner(language)
+        except ValueError as e:
+            # Keep the registry's message: it distinguishes "analyzed but no
+            # runner built yet" from "unknown language", which a generic
+            # message here would flatten.
+            last_error = e
+            continue
+        return language
+    if last_error is not None:
+        raise last_error
+    raise ValueError("this project has no detected language, so there is nothing to run")
+
+
+def run_tests(project_id: str, language: str | None = None) -> RunResult:
     """Execute the target repo's suite in the sandbox and persist the result.
+
+    `language` defaults to whatever the project was detected as, so the
+    caller doesn't have to guess -- the backend already knows the stack.
 
     The run is appended to the knowledge base rather than returned and
     dropped, so the report and dashboard can show the latest outcome and
     coverage without re-running a suite that costs real time."""
     workspace = load_workspace(project_id)
     store = JSONFileStore()
-    runner = get_runner(language)
+    framework: str | None = None
+    if language is None:
+        language, framework = resolve_runner_stack(detect_stack(workspace))
+    runner = get_runner(language, framework)
     result = runner.run(workspace)
     store.save_runs(workspace, store.load_runs(workspace) + [result])
     log_event(

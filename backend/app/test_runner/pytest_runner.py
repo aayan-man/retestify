@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import time
 import uuid
@@ -18,6 +19,53 @@ from .sandbox_exec import ensure_runner_image, run_in_container, runner_image_ta
 PYTEST_RUNNER_DOCKERFILE = """FROM {base}
 RUN pip install --no-cache-dir pytest pytest-json-report coverage
 """
+
+# Requirements-style files, in preference order. A project declaring its
+# dependencies any of these ways can have them installed into the image.
+REQUIREMENTS_FILES = ("requirements.txt", "requirements-dev.txt", "requirements/base.txt")
+# Projects that declare dependencies through packaging metadata instead.
+PACKAGE_MANIFESTS = ("pyproject.toml", "setup.py", "setup.cfg")
+
+NO_MANIFEST_HINT = (
+    "The target repo declares no Python dependencies ({manifests}), so only the "
+    "test tooling was available and anything the suite imports from third-party "
+    "packages failed to resolve. Add a requirements.txt listing them."
+)
+
+
+def _dependency_layer(source_dir: Path) -> tuple[str, str] | None:
+    """Dockerfile lines that install the target repo's own dependencies,
+    plus a fingerprint of what they were derived from.
+
+    Returns None when the repo declares no dependencies, in which case there
+    is nothing to install and a suite importing third-party packages will
+    fail with ModuleNotFoundError -- correctly, since nothing could have
+    known what to install.
+    """
+    for name in REQUIREMENTS_FILES:
+        manifest = source_dir / name
+        if manifest.is_file():
+            digest = hashlib.sha256(manifest.read_bytes()).hexdigest()[:12]
+            # Only the manifest is copied, so an unrelated source edit does
+            # not invalidate the image.
+            return (
+                f"COPY {name} /tmp/requirements.txt\n"
+                f"RUN pip install --no-cache-dir -r /tmp/requirements.txt\n",
+                digest,
+            )
+
+    for name in PACKAGE_MANIFESTS:
+        manifest = source_dir / name
+        if manifest.is_file():
+            digest = hashlib.sha256(manifest.read_bytes()).hexdigest()[:12]
+            # Packaging metadata needs the project itself to install from.
+            return (
+                "COPY . /src\n"
+                "RUN pip install --no-cache-dir /src\n",
+                digest,
+            )
+
+    return None
 
 
 class PytestRunner(TestRunner):
@@ -42,10 +90,22 @@ class PytestRunner(TestRunner):
             f"coverage json -o {coverage_name} --quiet || true",
         ]
 
+        dependencies = _dependency_layer(workspace.source_dir)
+        dockerfile = PYTEST_RUNNER_DOCKERFILE.format(base=self.image)
+        suffix = "pytest"
+        if dependencies is not None:
+            layer, digest = dependencies
+            dockerfile += layer
+            # The repo's dependencies are part of what the image *is*, so the
+            # tag has to change when they do.
+            suffix = f"pytest-{digest}"
+
         start = time.monotonic()
         try:
             image = ensure_runner_image(
-                runner_image_tag(self.image, "pytest"), PYTEST_RUNNER_DOCKERFILE.format(base=self.image)
+                runner_image_tag(self.image, suffix),
+                dockerfile,
+                context_dir=workspace.source_dir if dependencies is not None else None,
             )
             proc = run_in_container(
                 image=image, workspace_dir=workspace.source_dir, command=command, timeout_s=timeout_s
@@ -80,6 +140,13 @@ class PytestRunner(TestRunner):
                 f"pytest produced no JSON report ({report_name}); the suite did not run to "
                 "completion, so this run is reported as an error rather than a pass.",
             )
+            if dependencies is None:
+                stderr = _append_note(
+                    stderr,
+                    NO_MANIFEST_HINT.format(
+                        manifests=", ".join(REQUIREMENTS_FILES + PACKAGE_MANIFESTS)
+                    ),
+                )
 
         return RunResult(
             run_id=run_id,

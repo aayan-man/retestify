@@ -105,7 +105,11 @@ def _parse_jest_report(path: Path) -> tuple[list[TestOutcome], dict[str, int]]:
 
     outcomes: list[TestOutcome] = []
     for suite in data.get("testResults", []):
-        for test in suite.get("testResults", []):
+        # Jest nests its per-test records under "assertionResults"; the
+        # suite's own "testResults" key does not exist in modern jest, so
+        # reading it reported every run as zero tests. "testResults" is kept
+        # as a fallback for older versions and jest-compatible reporters.
+        for test in suite.get("assertionResults") or suite.get("testResults") or []:
             raw_status = test.get("status", "failed")
             status = "passed" if raw_status == "passed" else ("skipped" if raw_status == "pending" else "failed")
             outcomes.append(

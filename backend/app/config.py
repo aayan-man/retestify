@@ -32,6 +32,8 @@ class Settings(BaseSettings):
 
     test_runner_docker_image_python: str = "python:3.11-slim"
     test_runner_docker_image_node: str = "node:20-slim"
+    test_runner_docker_image_go: str = "golang:1.22-alpine"
+    test_runner_docker_image_java: str = "maven:3.9-eclipse-temurin-21"
 
     github_webhook_secret: str | None = None
 

@@ -80,7 +80,16 @@ All 8 planned phases have an initial implementation:
   `"failed"` status and a `failure_reason` and the run continues, instead of
   one bad component discarding every test already written in a long,
   paid-for loop.
-- `test_runner/` executes the target repo's suite (pytest/Jest today)
+- `test_runner/registry.py` resolves a runner by **(language, framework)**
+  rather than by language alone, because one language commonly has several
+  frameworks needing different commands and report formats. Runnable today:
+  Python/pytest (and unittest, which pytest executes), JavaScript+TypeScript/
+  jest, Go/testing, Java/JUnit via Maven. C++ and C# are analyzed and
+  classified but have no runner yet, and `get_runner` says exactly that
+  rather than reporting an unknown language. Adding a stack is one
+  `TestRunner` subclass plus one registration, and `register_runner()` works
+  from outside the module.
+- `test_runner/` executes the target repo's suite
   **inside an isolated, network-disabled Docker container**; it fails
   loudly rather than ever falling back to running untrusted code on the
   host if Docker isn't available. "Available" means the daemon answers, not
@@ -207,9 +216,13 @@ All 8 planned phases have an initial implementation:
   Docker; see docs/PROJECT_GUIDE_QA.md §3).
 - Churn-based risk prediction needs `detect_changes` to have run more than
   once on a project before it has any history to learn from.
-- Java/C++/Go/C# support covers analysis, test discovery, classification,
-  and generation — but not sandboxed execution yet (`run-tests` only has a
-  registered runner for Python/JS today). Adding one is the natural next
+- C++ and C# support covers analysis, test discovery, classification and
+  generation, but not sandboxed execution — no runner is registered for
+  them yet (they would need CTest and `dotnet test` respectively).
+- The Maven runner reports no coverage: JaCoCo only measures when its
+  plugin is bound into the build, and the runner deliberately does not
+  rewrite the target repo's pom.xml. Jest coverage is likewise not wired
+  up, so coverage figures are Python and Go only. Adding one is the natural next
   step (Maven/CTest/`go test -json`/`dotnet test`, each in its own Docker
   image, following the existing `test_runner/pytest_runner.py` pattern) but
   wasn't built without a way to verify it end-to-end in this environment.

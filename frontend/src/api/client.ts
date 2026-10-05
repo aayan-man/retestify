@@ -74,10 +74,13 @@ export const api = {
   getJob: (jobId: string) => request<Job>(`/jobs/${jobId}`),
   // Runs the target repo's suite in the Docker sandbox. Slow and
   // synchronous on the backend, so the caller should expect to wait.
-  runTests: (projectId: string, language = "python") =>
-    request<RunResult>(`/projects/${projectId}/run-tests?language=${encodeURIComponent(language)}`, {
-      method: "POST",
-    }),
+  // The language is omitted deliberately: the backend knows the detected
+  // stack, and a hardcoded default here ran pytest against a TS project.
+  runTests: (projectId: string, language?: string) =>
+    request<RunResult>(
+      `/projects/${projectId}/run-tests${language ? `?language=${encodeURIComponent(language)}` : ""}`,
+      { method: "POST" },
+    ),
 
   detectChanges: (projectId: string) =>
     request<ChangeRecord[]>(`/projects/${projectId}/detect-changes`, { method: "POST" }),

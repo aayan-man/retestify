@@ -73,7 +73,7 @@ def _image_exists(tag: str) -> bool:
     return proc.returncode == 0
 
 
-def ensure_runner_image(tag: str, dockerfile: str) -> str:
+def ensure_runner_image(tag: str, dockerfile: str, context_dir: Path | None = None) -> str:
     """Build, once, an image with the test tooling already installed.
 
     The suite itself must run with networking disabled, but the tooling has
@@ -81,6 +81,10 @@ def ensure_runner_image(tag: str, dockerfile: str) -> str:
     run can never work, because that run has no network. Baking it in here
     is what makes the two requirements compatible: the build has a network,
     the test execution does not.
+
+    `context_dir` supplies a build context when the Dockerfile needs to COPY
+    from the target repo (to install its own dependencies); without one the
+    build has no context and the Dockerfile is read from stdin alone.
 
     Returns the tag, so callers can use the result directly as the image to
     run. Raises DockerUnavailableError if Docker isn't usable, or
@@ -93,8 +97,12 @@ def ensure_runner_image(tag: str, dockerfile: str) -> str:
     if _image_exists(tag):
         return tag
 
+    build_cmd = ["docker", "build", "-q", "-t", tag]
+    # "-f -" reads the Dockerfile from stdin while still taking a context,
+    # so COPY can reach the repo's dependency manifest.
+    build_cmd += ["-f", "-", str(context_dir.resolve())] if context_dir is not None else ["-"]
     proc = subprocess.run(
-        ["docker", "build", "-q", "-t", tag, "-"],
+        build_cmd,
         input=dockerfile,
         capture_output=True,
         text=True,

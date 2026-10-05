@@ -33,7 +33,10 @@ def main() -> None:
 
     run_p = sub.add_parser("run-tests", help="Execute the target repo's test suite in a sandboxed container")
     run_p.add_argument("--project", required=True, help="project_id from a previous `analyze` run")
-    run_p.add_argument("--language", default="python", help="Which test runner to use (default: python)")
+    run_p.add_argument(
+        "--language",
+        help="Which test runner to use (default: the project's detected language)",
+    )
 
     detect_p = sub.add_parser(
         "detect-changes", help="Pull new commits and diff against the stored knowledge base"
