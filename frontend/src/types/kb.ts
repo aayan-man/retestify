@@ -77,6 +77,7 @@ export interface Job {
 
 export interface ProjectSummary {
   project_id: string;
+  name: string;
   languages: string[];
   frameworks: string[];
   component_count: number;

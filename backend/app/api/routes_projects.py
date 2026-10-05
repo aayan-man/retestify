@@ -25,6 +25,7 @@ class IngestGithubRequest(BaseModel):
 
 class ProjectSummary(BaseModel):
     project_id: str
+    name: str
     languages: list[str]
     frameworks: list[str]
     component_count: int
@@ -36,6 +37,7 @@ class ProjectSummary(BaseModel):
 def _to_summary(summary: AnalysisSummary) -> ProjectSummary:
     return ProjectSummary(
         project_id=summary.workspace.project_id,
+        name=summary.workspace.display_name,
         languages=summary.stack.languages,
         frameworks=summary.stack.test_frameworks,
         component_count=summary.component_count,
@@ -82,5 +84,5 @@ def download_project(project_id: str) -> Response:
     return Response(
         content=zip_bytes,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{project_id}.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="{workspace.display_name}.zip"'},
     )

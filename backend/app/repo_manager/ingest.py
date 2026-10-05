@@ -8,19 +8,28 @@ import git
 from app.config import settings
 
 from .sandbox import safe_extract
-from .workspace import Workspace
+from .workspace import Workspace, clean_name
 
 
-def _new_workspace() -> Workspace:
+def _new_workspace(name: str | None = None) -> Workspace:
     project_id = uuid.uuid4().hex[:12]
     root = settings.workspace_root / project_id
-    ws = Workspace(project_id=project_id, root=root)
+    ws = Workspace(project_id=project_id, root=root, name=clean_name(name))
     ws.ensure_dirs()
+    ws.save_meta()
     return ws
 
 
+def _repo_name_from_url(url: str) -> str | None:
+    """Last path segment of a clone URL, minus any .git suffix. Works for
+    https, ssh and local paths alike."""
+    trimmed = url.rstrip("/").removesuffix(".git")
+    segment = trimmed.replace("\\", "/").rsplit("/", 1)[-1]
+    return segment.rsplit(":", 1)[-1] or None
+
+
 def extract_zip(zip_path: str | Path) -> Workspace:
-    ws = _new_workspace()
+    ws = _new_workspace(Path(zip_path).stem)
     with zipfile.ZipFile(zip_path) as zf:
         safe_extract(zf, ws.source_dir)
     _flatten_single_root(ws.source_dir)
@@ -28,7 +37,7 @@ def extract_zip(zip_path: str | Path) -> Workspace:
 
 
 def clone_github(url: str, ref: str | None = None) -> Workspace:
-    ws = _new_workspace()
+    ws = _new_workspace(_repo_name_from_url(url))
     if ref:
         git.Repo.clone_from(url, ws.source_dir, depth=1, branch=ref)
     else:
@@ -42,7 +51,7 @@ def import_directory(src_dir: Path) -> Workspace:
     Lets the CLI point at a directory on disk during development without
     round-tripping it through a zip file first.
     """
-    ws = _new_workspace()
+    ws = _new_workspace(Path(src_dir).name)
     shutil.copytree(
         src_dir,
         ws.source_dir,

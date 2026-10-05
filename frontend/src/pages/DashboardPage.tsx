@@ -97,11 +97,14 @@ export function DashboardPage({ summary }: Props) {
     <div className="dashboard-page">
       <header className="dashboard-header">
         <div>
-          <h1>{summary.project_id}</h1>
+          <h1>{summary.name}</h1>
           <p className="muted">
             {summary.languages.join(", ")} · {summary.frameworks.join(", ")} · {summary.component_count}{" "}
             components · {summary.test_count} tests ({summary.mapped_test_count} mapped)
           </p>
+          {/* Still shown: the id is what the CLI and the workspace folder
+              use, so it has to stay findable. */}
+          <p className="muted project-id">{summary.project_id}</p>
         </div>
         <div className="dashboard-actions">
           <button
@@ -136,7 +139,7 @@ export function DashboardPage({ summary }: Props) {
           <a
             className="download-link"
             href={api.downloadUrl(summary.project_id)}
-            download={`${summary.project_id}.zip`}
+            download={`${summary.name}.zip`}
           >
             Download .zip
           </a>
