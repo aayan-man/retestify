@@ -45,6 +45,22 @@ All 8 planned phases have an initial implementation:
 - `decision_engine` classifies each component's tests as retain/modify/remove
   (or generate, if none are mapped); `generator` writes new/improved tests as
   schema-validated, retry-on-failure structured output.
+- A passing schema only proves the `code` field is a *string*, so
+  `ai_engine/code_validation.py` checks the string itself before it can
+  reach disk: Python is parsed with `ast`, and a response that emitted
+  `\n` as two literal characters (which collapses a whole test onto one
+  unparseable line) is unescaped only when that demonstrably fixes the
+  parse, so a repair is never applied on a guess.
+  `unresolved_repo_import()` resolves each `from <repo module> import ...`
+  against the target repo and rejects a symbol that module doesn't
+  define — the hallucinated-class case that otherwise only surfaces once
+  the suite runs. It's deliberately conservative, since a false rejection
+  costs a component its test: it descends into conditional blocks (plenty
+  of libraries define their API inside `if PY3:`), skips modules that bind
+  names dynamically or that it can't resolve to a file, and ignores stdlib
+  and third-party imports entirely. `complete_structured()` takes a
+  `postprocess` hook, so these semantic rejections get the same corrective
+  retry that schema mismatches already had.
 - `test_writer/` writes generated code per language. Python/JS/TS/Go/C++
   append a free-standing test to the conventional file; Java/C# use
   `test_writer/common.py::insert_method_into_class` since a bare test
@@ -59,12 +75,38 @@ All 8 planned phases have an initial implementation:
   inside functions alone, and never touches the rest of the block, so
   comments and formatting survive. Python only; the other languages still
   append verbatim.
+- Applying isolates each recommendation (`app/jobs/pipeline.py`): if
+  generation or the write fails, that one recommendation is stored with the
+  `"failed"` status and a `failure_reason` and the run continues, instead of
+  one bad component discarding every test already written in a long,
+  paid-for loop.
 - `test_runner/` executes the target repo's suite (pytest/Jest today)
   **inside an isolated, network-disabled Docker container**; it fails
   loudly rather than ever falling back to running untrusted code on the
-  host if Docker isn't available. Java/C++/Go/C# don't have a registered
+  host if Docker isn't available. "Available" means the daemon answers, not
+  that the binary exists: `docker_available()` probes it with `docker info`,
+  because an installed-but-stopped Docker Desktop leaves the CLI on `PATH`
+  while every `docker run` fails, and `docker_unavailable_reason()`
+  distinguishes "not on PATH" from "daemon down" in the message. A
+  `docker run` that exits 125/126/127 (the run itself failed, or the command
+  wasn't invocable) raises `ContainerExecutionError`, so a container that
+  never started can't be mistaken for a suite that ran and reported
+  nothing — a non-zero exit from the test command itself is a real result
+  and returns normally. `base.overall_status()` likewise reports a run with
+  zero test results as `error`, never `passed`: no failures is only good
+  news when something actually ran. Java/C++/Go/C# don't have a registered
   runner yet — `run_tests()` raises a clear `ValueError` for them rather
   than silently doing nothing (see Known scope limits).
+- The suite runs with networking disabled, so its tooling can't be installed
+  from inside the run — `sandbox_exec.ensure_runner_image()` bakes
+  pytest/coverage (or jest) into a `retestify-runner:*` image once, at build
+  time, where there *is* a network. Installing at run time instead was the
+  original design and could never work: pip got
+  `Temporary failure in name resolution` every time, and the resulting
+  empty run was then reported as a pass.
+- `run_tests()` persists each `RunResult` to `kb/runs.json`, and
+  `GET /projects/{id}/report` carries the latest one, so the dashboard can
+  show pass counts and coverage without re-running a suite.
 - `reporting/audit_log.py` — every recommendation and test-file write is
   logged to `kb/audit_log.jsonl`.
 
@@ -82,11 +124,13 @@ All 8 planned phases have an initial implementation:
 
 **Dashboard, CI/CD, monitoring (Phase 7)**
 - `app/main.py` + `app/api/` — a FastAPI backend wrapping the pipeline
-  (projects, recommendations, changes, runs, reports, webhooks).
-- `app/jobs/queue.py` — the slow calls (`classify`, `apply`, and the
-  webhook's pull-and-reclassify) return `202` with a job id and run on a
-  background thread pool; clients poll `GET /jobs/{id}` for status and
-  `processed`/`total` progress. Applying routinely runs for minutes, so
+  (projects, recommendations, jobs, changes, runs, reports, risks,
+  companies, webhooks).
+- `app/jobs/queue.py` — the slow calls run on a background thread pool:
+  `classify` and `apply` return `202` with the job record and a `Location`
+  header, and the webhook acknowledges the push immediately with its job id;
+  clients poll `GET /jobs/{id}` for status and `processed`/`total`
+  progress. Applying routinely runs for minutes, so
   holding the request open risked a proxy or browser timeout discarding a
   whole paid-for run — and GitHub's delivery timeout is far shorter than a
   reclassify takes. One job at a time per project, since the knowledge base
@@ -100,6 +144,11 @@ All 8 planned phases have an initial implementation:
   webhook access.
 - `frontend/` — a React + TypeScript dashboard (Vite) with upload, live
   recommendation/change views, and one-click classify/apply/detect-changes.
+  Recommendation cards carry an applied/failed/rejected badge (a failed one
+  shows its `failure_reason` in place of the now-stale rationale), the
+  summary strip counts applied/failed, and the buttons poll their job and
+  report live progress ("Applying... 12/29") instead of freezing for the
+  length of the run.
   Verified end-to-end in-browser against the live API.
 
 **Evaluation harness (Phase 8)**
@@ -145,9 +194,11 @@ All 8 planned phases have an initial implementation:
   persisted to the knowledge base by the pipeline, so a lost job record
   never means lost work. A shared broker would be the next step for a
   multi-process deployment.
-- `detect-changes`, `assess-risks` and `run-tests` are still synchronous
-  API calls; they're much shorter than classify/apply, but `run-tests` in
-  particular could join the queue if suites get slow.
+- `detect-changes`, `classify-changed`, `assess-risks` and `run-tests` are
+  still synchronous API calls. Most are much shorter than classify/apply,
+  but `classify-changed` is an LLM call per changed component (it only runs
+  as a job when a webhook triggers it, not when called directly) and
+  `run-tests` grows with the target suite, so both could join the queue.
 - The standalone-LLM baseline doesn't write/execute generated tests, so its
   coverage-delta metric is intentionally left unset (see its docstring).
 - `accuracy` in the evaluation harness requires a human-labeled ground-truth
@@ -202,6 +253,14 @@ uvicorn app.main:app --reload   # http://localhost:8000, see /health
 # in another terminal
 cd frontend && npm install && npm run dev   # http://localhost:5173
 ```
+
+`POST /projects/{id}/classify` and `POST /projects/{id}/apply` return `202`
+with a job record (and a `Location` header) rather than the results —
+poll `GET /jobs/{id}` until its status is `succeeded`/`failed`, reading
+`processed`/`total` for progress, then fetch
+`GET /projects/{id}/recommendations` as usual. A second job for the same
+project while one is active returns `409`. The dashboard's buttons do
+exactly this; the CLI still runs both in-process and blocks.
 
 ### Evaluation harness
 

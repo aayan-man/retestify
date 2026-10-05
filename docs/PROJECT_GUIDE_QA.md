@@ -41,6 +41,48 @@ standalone arm are run against the same repos in
 time, token cost, and coverage delta for both, so the "is context worth
 it" question is answered by a controlled comparison, not a claim.
 
+**Why those coverage numbers can be trusted:** both arms get coverage from
+`pipeline.run_tests` → `test_runner/`, so the comparison is only as good as
+that path's honesty about whether a suite actually ran. It was not, until
+recently: `POST /projects/{id}/run-tests` returned status `passed` with
+`total: 0` on a machine where Docker was installed but its daemon was not
+started, because `sandbox_exec.docker_available()` only checked that the
+`docker` binary was on `PATH`, `run_in_container()` never inspected
+`docker run`'s exit code, and both runners computed "passed" as "no
+failures and no errors" — which zero tests satisfies. All three are fixed:
+`docker_unavailable_reason()` probes the daemon with `docker info` and
+distinguishes "not on PATH" from "daemon unreachable", `run_in_container()`
+raises `ContainerExecutionError` on docker's 125/126/127 (so a container
+that never started cannot be mistaken for a suite that ran and reported
+nothing, while a non-zero exit from the test command itself still returns
+normally as a real result), and `base.overall_status()` reports a total of
+0 as `error`, never `passed`. Each is pinned by a test in
+`backend/tests/unit/test_test_runner.py`. This matters for the research
+framing rather than just for the product: `coverage_before`/`coverage_after`
+in `research/evaluation/run_framework.py` are read straight off those
+`RunResult`s, so a baseline comparison built on a silently-empty run would
+have been meaningless.
+
+**Concrete evidence for grounding, from a live run rather than only the
+literature:** applying the `six` repo against a live provider produced a
+`test_six.py` whose code contained `"\n"` as two literal characters,
+collapsing a test onto one unparseable line and breaking the import of the
+*entire* file, upstream tests included; separately, the model invented a
+class and imported it from the module under test (`from six import
+MyClass`), a symbol that does not exist there. Both are precisely the
+failure modes that static context is supposed to prevent and that a bare
+prompt has no way to notice, and both are now caught before anything
+reaches disk by `app/ai_engine/code_validation.py` —
+`normalize_generated_code()` parses Python with `ast.parse` (repairing the
+escaped-newline case only when unescaping demonstrably fixes the parse, so
+a repair is never applied on a guess), and `unresolved_repo_import()`
+resolves each import against the target repo's own modules and rejects a
+symbol the module does not define. `generator.py` passes both as a
+`postprocess` hook to `complete_structured`, so a rejection becomes a
+corrective retry rather than a bad file. The second check is only possible
+*because* the knowledge base and workspace are available at generation
+time: a standalone LLM arm has no repo to resolve an import against.
+
 **Why the literature supports this design:**
 - Context-window and retrieval limits mean a bare LLM prompt over a large
   file can produce "syntactically valid but semantically incomplete tests
@@ -125,9 +167,17 @@ that fewer than 0.4% of open-source projects maintain performance
 benchmarks at all — [regression benchmarking research summary]. Actually running microbenchmarks
 is a natural extension of the existing sandboxed `test_runner/` (e.g. wiring
 `pytest-benchmark`/`jest --testPathPattern=bench` through the same
-Docker-isolated execution path used for correctness tests) — left as a
-documented extension point rather than built now, since it needs Docker
-(unavailable in the dev sandbox this was built in) to verify safely.
+Docker-isolated execution path used for correctness tests). To be clear
+about the current state rather than hiding behind an environment: that
+execution path is real and exercised — `test_runner/sandbox_exec.py` runs
+suites in a network-disabled container, refuses to fall back to host
+execution, and now reports an unreachable daemon, a failed `docker run`, or
+a run that collected zero tests as an `error` instead of a pass (see §1).
+What does not exist is any benchmark command wired through it, or any
+decision about how a benchmark result would be compared across runs on
+shared hardware, where timing noise is the hard part. So this stays a
+documented extension point because it has not been built, not because it
+could not be run.
 
 Findings are `PerformanceRisk` records, persisted to
 `kb/performance_risks.json`, exposed via the same `assess-risks`
@@ -225,10 +275,31 @@ natural extension of the same interface — not a redesign.
 
 ## What's still an honest gap
 
-- Performance testing is triage, not execution — no benchmark actually
-  runs yet (needs Docker; see §3).
+- Performance testing is triage, not execution — no benchmark is wired
+  through the sandboxed runner yet. The sandbox itself works; the benchmark
+  harness and its noise handling are what's missing (see §3).
 - Churn-based risk prediction needs a project to have been re-analyzed via
   `detect_changes` more than once before it produces anything — a
   brand-new project has no history to learn from yet, by definition.
+  (`detect_changes` does now accumulate that history rather than overwrite
+  it; that part was the bug described in §4 and is fixed.)
 - Personalization only affects prompts and thresholds, not the underlying
-  model weights — see the fine-tuning note in §5.
+  model weights — see the fine-tuning note in §5. Two `CompanyProfile`
+  fields are also declared but not yet consumed anywhere:
+  `preferred_frameworks` (framework selection still comes from
+  `pipeline._framework_map`, i.e. what the repo already uses) and
+  `min_confidence_for_auto_apply`. They are schema, not behavior, today.
+- Coverage is only measured for Python. `JestRunner` always returns
+  `coverage_percent=None` (it needs a separate `--coverage` summary pass),
+  so the coverage-delta column of the §1 comparison is empty for a
+  JavaScript/TypeScript target repo.
+- `run_framework.py` records `coverage_percent` from each run without
+  asserting the run's `status`. Since the fix in §1 a run that never
+  executed reports `error` and carries no coverage figure, so it can no
+  longer contribute a misleadingly clean number — but the framework still
+  treats that as a missing value rather than failing loudly.
+- The two generated-code failure modes in §1 are documented from a real run
+  and are now caught by validation; no number is claimed for how often they
+  occur, because that was not measured. The baseline comparison in §1 is
+  likewise a built-and-runnable comparison arm, not a published result —
+  the coverage-delta and token-cost figures come from running it.
