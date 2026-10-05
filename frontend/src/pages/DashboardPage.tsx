@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { ChangeTimeline } from "../components/ChangeTimeline";
 import { RecommendationCard } from "../components/RecommendationCard";
 import { RiskPanel } from "../components/RiskPanel";
+import { TestResultsPanel } from "../components/TestResultsPanel";
 import { RecommendationDetailPage } from "./RecommendationDetailPage";
 import type { ChangeRecord, Job, ProjectReport, ProjectSummary, Recommendation, RiskAssessment } from "../types/kb";
 
@@ -157,29 +158,7 @@ export function DashboardPage({ summary }: Props) {
         </div>
       )}
 
-      {report?.run_result && (
-        <div className="report-strip">
-          <span className={`run-status run-status-${report.run_result.status}`}>
-            Tests: {report.run_result.status}
-          </span>
-          <span>
-            {report.run_result.passed}/{report.run_result.total} passed
-            {report.run_result.failed > 0 && `, ${report.run_result.failed} failed`}
-            {report.run_result.skipped > 0 && `, ${report.run_result.skipped} skipped`}
-          </span>
-          <span>
-            Coverage:{" "}
-            {report.run_result.coverage_percent === null
-              ? "n/a"
-              : `${report.run_result.coverage_percent.toFixed(1)}%`}
-          </span>
-          {report.run_result.status === "error" && report.run_result.stderr && (
-            <span className="report-strip-failed" title={report.run_result.stderr}>
-              (no results — hover for why)
-            </span>
-          )}
-        </div>
-      )}
+      {report?.run_result && <TestResultsPanel run={report.run_result} />}
 
       <div className="dashboard-columns">
         <section>

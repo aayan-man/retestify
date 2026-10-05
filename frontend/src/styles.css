@@ -316,3 +316,109 @@ button:disabled {
 .run-status-error {
   color: #ef5350;
 }
+
+.test-results {
+  margin-top: 1.5rem;
+}
+
+.outcome-group-heading {
+  font-size: 0.95em;
+  color: #9aa0a6;
+  margin-bottom: 0.4rem;
+}
+
+.outcome-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.outcome {
+  background: #1a1d23;
+  border: 1px solid #2a2d33;
+  border-left-width: 3px;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85em;
+}
+
+.outcome-failed,
+.outcome-error {
+  border-left-color: #ef5350;
+}
+
+.outcome-passed {
+  border-left-color: #6abf69;
+}
+
+.outcome-skipped {
+  border-left-color: #9aa0a6;
+}
+
+.outcome-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.outcome-status {
+  font-size: 0.85em;
+  font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.outcome-status-failed,
+.outcome-status-error {
+  color: #ef5350;
+}
+
+.outcome-status-passed {
+  color: #6abf69;
+}
+
+.outcome-status-skipped {
+  color: #9aa0a6;
+}
+
+.outcome-name {
+  font-family: monospace;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outcome-file,
+.outcome-duration {
+  color: #9aa0a6;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.outcome-toggle,
+.link-button {
+  background: none;
+  border: none;
+  color: #6aa0ff;
+  cursor: pointer;
+  padding: 0;
+  font-size: 1em;
+  text-decoration: underline;
+}
+
+.outcome-message {
+  background: #0d0f13;
+  border: 1px solid #2a2d33;
+  border-radius: 6px;
+  padding: 0.6rem;
+  margin: 0.5rem 0 0;
+  overflow-x: auto;
+  max-height: 20rem;
+  font-size: 0.95em;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
