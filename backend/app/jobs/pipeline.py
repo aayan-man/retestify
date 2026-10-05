@@ -31,15 +31,16 @@ from app.risk_prediction.churn_risk import compute_churn_risks
 from app.risk_prediction.pattern_detector import detect_code_smells
 from app.tech_detector.detector import StackProfile, detect_stack
 
-logger = logging.getLogger(__name__)
-
-# Called with (processed, total) as a long-running call advances.
-ProgressCallback = Callable[[int, int], None]
 from app.test_analyzer.discover import extract_test_cases
 from app.test_analyzer.mapper import map_components_to_tests
 from app.test_runner.base import RunResult
 from app.test_runner.registry import get_runner
 from app.test_writer.registry import get_writer
+
+logger = logging.getLogger(__name__)
+
+# Called with (processed, total) as a long-running call advances.
+ProgressCallback = Callable[[int, int], None]
 
 
 @dataclass
@@ -346,9 +347,16 @@ def assess_risks(project_id: str, company_id: str | None = None) -> RiskAssessme
 
 
 def run_tests(project_id: str, language: str = "python") -> RunResult:
+    """Execute the target repo's suite in the sandbox and persist the result.
+
+    The run is appended to the knowledge base rather than returned and
+    dropped, so the report and dashboard can show the latest outcome and
+    coverage without re-running a suite that costs real time."""
     workspace = load_workspace(project_id)
+    store = JSONFileStore()
     runner = get_runner(language)
     result = runner.run(workspace)
+    store.save_runs(workspace, store.load_runs(workspace) + [result])
     log_event(
         workspace,
         "test_run_completed",

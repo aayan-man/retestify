@@ -9,6 +9,7 @@ import type {
   ProjectSummary,
   Recommendation,
   RiskAssessment,
+  RunResult,
   TestCase,
 } from "../types/kb";
 
@@ -71,6 +72,13 @@ export const api = {
       body: JSON.stringify({ provider: provider ?? null, company_id: companyId ?? null }),
     }),
   getJob: (jobId: string) => request<Job>(`/jobs/${jobId}`),
+  // Runs the target repo's suite in the Docker sandbox. Slow and
+  // synchronous on the backend, so the caller should expect to wait.
+  runTests: (projectId: string, language = "python") =>
+    request<RunResult>(`/projects/${projectId}/run-tests?language=${encodeURIComponent(language)}`, {
+      method: "POST",
+    }),
+
   detectChanges: (projectId: string) =>
     request<ChangeRecord[]>(`/projects/${projectId}/detect-changes`, { method: "POST" }),
 

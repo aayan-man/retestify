@@ -85,6 +85,28 @@ export interface ProjectSummary {
   parse_error_count: number;
 }
 
+export interface TestOutcome {
+  name: string;
+  status: string;
+  duration_ms: number;
+  message: string | null;
+}
+
+export interface RunResult {
+  run_id: string;
+  status: "passed" | "failed" | "error";
+  total: number;
+  passed: number;
+  failed: number;
+  errors: number;
+  skipped: number;
+  duration_ms: number;
+  outcomes: TestOutcome[];
+  coverage_percent: number | null;
+  stdout: string;
+  stderr: string;
+}
+
 export interface ProjectReport {
   project_id: string;
   total_recommendations: number;
@@ -92,6 +114,7 @@ export interface ProjectReport {
   modified: number;
   removed: number;
   generated: number;
+  run_result: RunResult | null;
 }
 
 export interface DeploymentIssue {

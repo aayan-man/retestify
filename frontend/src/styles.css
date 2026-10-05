@@ -303,3 +303,16 @@ button:disabled {
 .risk-message {
   color: #e6e6e6;
 }
+
+.run-status {
+  font-weight: 600;
+}
+
+.run-status-passed {
+  color: #6abf69;
+}
+
+.run-status-failed,
+.run-status-error {
+  color: #ef5350;
+}

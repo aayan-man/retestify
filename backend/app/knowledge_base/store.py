@@ -9,6 +9,7 @@ from typing import TypeVar
 from pydantic import BaseModel
 
 from app.repo_manager.workspace import Workspace
+from app.test_runner.base import RunResult
 
 from . import paths as kb_paths
 from .schema import (
@@ -55,6 +56,12 @@ class KnowledgeBaseStore(ABC):
 
     @abstractmethod
     def load_recommendations(self, ws: Workspace) -> list[Recommendation]: ...
+
+    @abstractmethod
+    def save_runs(self, ws: Workspace, items: list[RunResult]) -> None: ...
+
+    @abstractmethod
+    def load_runs(self, ws: Workspace) -> list[RunResult]: ...
 
     @abstractmethod
     def save_deployment_issues(self, ws: Workspace, items: list[DeploymentIssue]) -> None: ...
@@ -117,6 +124,12 @@ class JSONFileStore(KnowledgeBaseStore):
 
     def load_recommendations(self, ws: Workspace) -> list[Recommendation]:
         return _read_collection(kb_paths.recommendations_path(ws), Recommendation)
+
+    def save_runs(self, ws: Workspace, items: list[RunResult]) -> None:
+        _write_collection(kb_paths.runs_path(ws), ws.project_id, items)
+
+    def load_runs(self, ws: Workspace) -> list[RunResult]:
+        return _read_collection(kb_paths.runs_path(ws), RunResult)
 
     def save_deployment_issues(self, ws: Workspace, items: list[DeploymentIssue]) -> None:
         _write_collection(kb_paths.deployment_issues_path(ws), ws.project_id, items)

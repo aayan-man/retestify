@@ -14,8 +14,11 @@ router = APIRouter(prefix="/projects", tags=["reports"])
 @router.get("/{project_id}/report", response_model=ProjectReport)
 def get_report(project_id: str):
     workspace = get_workspace_or_404(project_id)
-    recommendations = JSONFileStore().load_recommendations(workspace)
-    return build_report(project_id, recommendations)
+    store = JSONFileStore()
+    recommendations = store.load_recommendations(workspace)
+    runs = store.load_runs(workspace)
+    # Latest run only: the report answers "where does this project stand now".
+    return build_report(project_id, recommendations, runs[-1] if runs else None)
 
 
 @router.get("/{project_id}/audit-log")

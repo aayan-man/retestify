@@ -37,3 +37,7 @@ def performance_risks_path(ws: Workspace) -> Path:
 
 def predicted_risks_path(ws: Workspace) -> Path:
     return ws.kb_dir / "predicted_risks.json"
+
+
+def runs_path(ws: Workspace) -> Path:
+    return ws.kb_dir / "runs.json"

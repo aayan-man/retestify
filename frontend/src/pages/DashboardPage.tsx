@@ -126,6 +126,12 @@ export function DashboardPage({ summary }: Props) {
           >
             {busy === "assess" ? "Assessing..." : "Assess Risks"}
           </button>
+          <button
+            disabled={busy !== null}
+            onClick={() => runAction("tests", () => api.runTests(summary.project_id))}
+          >
+            {busy === "tests" ? "Running tests..." : "Run tests"}
+          </button>
           <a
             className="download-link"
             href={api.downloadUrl(summary.project_id)}
@@ -148,6 +154,30 @@ export function DashboardPage({ summary }: Props) {
               unchanged, so show what it actually did. */}
           {appliedCount > 0 && <span>Applied: {appliedCount}</span>}
           {failedCount > 0 && <span className="report-strip-failed">Failed: {failedCount}</span>}
+        </div>
+      )}
+
+      {report?.run_result && (
+        <div className="report-strip">
+          <span className={`run-status run-status-${report.run_result.status}`}>
+            Tests: {report.run_result.status}
+          </span>
+          <span>
+            {report.run_result.passed}/{report.run_result.total} passed
+            {report.run_result.failed > 0 && `, ${report.run_result.failed} failed`}
+            {report.run_result.skipped > 0 && `, ${report.run_result.skipped} skipped`}
+          </span>
+          <span>
+            Coverage:{" "}
+            {report.run_result.coverage_percent === null
+              ? "n/a"
+              : `${report.run_result.coverage_percent.toFixed(1)}%`}
+          </span>
+          {report.run_result.status === "error" && report.run_result.stderr && (
+            <span className="report-strip-failed" title={report.run_result.stderr}>
+              (no results — hover for why)
+            </span>
+          )}
         </div>
       )}
 
