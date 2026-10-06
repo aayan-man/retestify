@@ -94,9 +94,36 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+.dashboard-identity {
+  min-width: 0;
+  flex: 1 1 18rem;
+}
+
+.dashboard-identity h1 {
+  margin: 0.2rem 0 0.4rem;
+  overflow-wrap: anywhere;
+}
+
+/* Wraps rather than overflowing once the six actions no longer fit on one
+   line, which happens well before phone widths. */
 .dashboard-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.back-button {
+  background: none;
+  border: 1px solid #2a2d33;
+  color: #9aa0a6;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85em;
+}
+
+.back-button:hover:not(:disabled) {
+  color: #e6e6e6;
+  border-color: #444;
 }
 
 .report-strip {
@@ -427,4 +454,94 @@ button:disabled {
   font-family: monospace;
   font-size: 0.8em;
   margin-top: -0.6rem;
+}
+
+/* ---------- responsive ---------- */
+
+/* Long single-word content (test ids, file paths, component ids) must not
+   force horizontal page scroll on narrow screens. */
+.rec-component,
+.outcome-name,
+.outcome-file,
+.risk-location {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .dashboard-columns {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .dashboard-page {
+    padding: 1rem;
+  }
+
+  /* The actions are the primary controls; give them the full width once
+     they are stacked under the project identity. */
+  .dashboard-actions {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-actions button,
+  .dashboard-actions .download-link {
+    flex: 1 1 calc(50% - 0.25rem);
+    justify-content: center;
+    text-align: center;
+  }
+
+  .back-button {
+    flex: 1 1 100%;
+  }
+
+  /* Stacked so the rationale gets the full width instead of a narrow column
+     squeezed between the badge and the confidence figure. */
+  .rec-card {
+    flex-wrap: wrap;
+  }
+
+  .rec-body {
+    flex: 1 1 100%;
+    order: 3;
+  }
+
+  .report-strip {
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+  }
+
+  .outcome-head {
+    flex-wrap: wrap;
+    gap: 0.35rem 0.6rem;
+  }
+
+  .outcome-name {
+    flex: 1 1 100%;
+    order: 2;
+  }
+
+  .detail-panel {
+    width: 100%;
+  }
+
+  .risk-list li {
+    flex-wrap: wrap;
+  }
+
+  .risk-message {
+    flex: 1 1 100%;
+  }
+
+  .upload-page {
+    margin: 4vh auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .dashboard-actions button,
+  .dashboard-actions .download-link {
+    flex: 1 1 100%;
+  }
 }

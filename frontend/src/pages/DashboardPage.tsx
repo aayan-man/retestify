@@ -11,9 +11,11 @@ const JOB_POLL_MS = 1000;
 
 interface Props {
   summary: ProjectSummary;
+  /** Return to the upload page to analyze a different project. */
+  onBack: () => void;
 }
 
-export function DashboardPage({ summary }: Props) {
+export function DashboardPage({ summary, onBack }: Props) {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [changes, setChanges] = useState<ChangeRecord[]>([]);
   const [report, setReport] = useState<ProjectReport | null>(null);
@@ -96,32 +98,23 @@ export function DashboardPage({ summary }: Props) {
   return (
     <div className="dashboard-page">
       <header className="dashboard-header">
-        <div>
+        <div className="dashboard-identity">
+          <button className="back-button" onClick={onBack} disabled={busy !== null}>
+            &#8592; Analyze another project
+          </button>
           <h1>{summary.name}</h1>
           <p className="muted">
-            {summary.languages.join(", ")} · {summary.frameworks.join(", ")} · {summary.component_count}{" "}
-            components · {summary.test_count} tests ({summary.mapped_test_count} mapped)
+            {summary.languages.join(", ")} &middot; {summary.frameworks.join(", ")} &middot;{" "}
+            {summary.component_count} components &middot; {summary.test_count} tests (
+            {summary.mapped_test_count} mapped)
           </p>
           {/* Still shown: the id is what the CLI and the workspace folder
               use, so it has to stay findable. */}
           <p className="muted project-id">{summary.project_id}</p>
         </div>
+        {/* Ordered to follow the workflow: inspect risks, decide, detect
+            what changed, apply the decisions, verify by running, export. */}
         <div className="dashboard-actions">
-          <button
-            disabled={busy !== null}
-            onClick={() => runJob("classify", () => api.classify(summary.project_id))}
-          >
-            {label("classify", "Classify", "Classifying...")}
-          </button>
-          <button disabled={busy !== null} onClick={() => runJob("apply", () => api.apply(summary.project_id))}>
-            {label("apply", "Apply pending", "Applying...")}
-          </button>
-          <button
-            disabled={busy !== null}
-            onClick={() => runAction("detect", () => api.detectChanges(summary.project_id))}
-          >
-            {busy === "detect" ? "Checking..." : "Detect changes"}
-          </button>
           <button
             disabled={busy !== null}
             onClick={() =>
@@ -129,6 +122,21 @@ export function DashboardPage({ summary }: Props) {
             }
           >
             {busy === "assess" ? "Assessing..." : "Assess Risks"}
+          </button>
+          <button
+            disabled={busy !== null}
+            onClick={() => runJob("classify", () => api.classify(summary.project_id))}
+          >
+            {label("classify", "Classify", "Classifying...")}
+          </button>
+          <button
+            disabled={busy !== null}
+            onClick={() => runAction("detect", () => api.detectChanges(summary.project_id))}
+          >
+            {busy === "detect" ? "Checking..." : "Detect changes"}
+          </button>
+          <button disabled={busy !== null} onClick={() => runJob("apply", () => api.apply(summary.project_id))}>
+            {label("apply", "Modify", "Modifying...")}
           </button>
           <button
             disabled={busy !== null}
