@@ -100,7 +100,6 @@ button:disabled {
 }
 
 .dashboard-identity h1 {
-  margin: 0.2rem 0 0.4rem;
   overflow-wrap: anywhere;
 }
 
@@ -119,6 +118,7 @@ button:disabled {
   color: #9aa0a6;
   padding: 0.3rem 0.6rem;
   font-size: 0.85em;
+  margin-bottom: 0.75rem;
 }
 
 .back-button:hover:not(:disabled) {
@@ -490,10 +490,6 @@ button:disabled {
     flex: 1 1 calc(50% - 0.25rem);
     justify-content: center;
     text-align: center;
-  }
-
-  .back-button {
-    flex: 1 1 100%;
   }
 
   /* Stacked so the rationale gets the full width instead of a narrow column

@@ -97,11 +97,14 @@ export function DashboardPage({ summary, onBack }: Props) {
 
   return (
     <div className="dashboard-page">
+      {/* On its own row above the header, so the header keeps its original
+          title-left / actions-right alignment. */}
+      <button className="back-button" onClick={onBack} disabled={busy !== null}>
+        &#8592; Analyze another project
+      </button>
+
       <header className="dashboard-header">
         <div className="dashboard-identity">
-          <button className="back-button" onClick={onBack} disabled={busy !== null}>
-            &#8592; Analyze another project
-          </button>
           <h1>{summary.name}</h1>
           <p className="muted">
             {summary.languages.join(", ")} &middot; {summary.frameworks.join(", ")} &middot;{" "}
