@@ -101,6 +101,10 @@ button:disabled {
 
 .dashboard-identity h1 {
   overflow-wrap: anywhere;
+  /* The browser's default h1 top margin (~21px) pushed the title below the
+     action buttons, which sit at the top of the flex-start header. Zeroing
+     it puts the title and the buttons on the same line. */
+  margin-top: 0;
 }
 
 /* Wraps rather than overflowing once the six actions no longer fit on one
