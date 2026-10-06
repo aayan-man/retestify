@@ -86,17 +86,19 @@ button:disabled {
   padding: 1.5rem;
 }
 
+/* Stacked at every width: project identity, then the action row beneath it.
+   Putting the actions to the right of the title left them visually detached
+   from the project they act on, and the row they form reads as the workflow
+   order they are in. */
 .dashboard-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
   gap: 1rem;
-  flex-wrap: wrap;
 }
 
 .dashboard-identity {
   min-width: 0;
-  flex: 1 1 18rem;
 }
 
 .dashboard-identity h1 {
@@ -114,6 +116,7 @@ button:disabled {
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: flex-start;
+  justify-content: flex-start;
 }
 
 .back-button {
@@ -481,11 +484,6 @@ button:disabled {
     padding: 1rem;
   }
 
-  /* The actions are the primary controls; give them the full width once
-     they are stacked under the project identity. */
-  .dashboard-actions {
-    width: 100%;
-  }
 }
 
 @media (max-width: 640px) {
