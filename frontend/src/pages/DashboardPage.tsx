@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { ChangeTimeline } from "../components/ChangeTimeline";
 import { RecommendationCard } from "../components/RecommendationCard";
+import { ReportPanel } from "../components/ReportPanel";
 import { RiskPanel } from "../components/RiskPanel";
 import { TestResultsPanel } from "../components/TestResultsPanel";
 import { RecommendationDetailPage } from "./RecommendationDetailPage";
@@ -195,6 +196,13 @@ export function DashboardPage({ summary, onBack }: Props) {
         <h2>Risk assessment</h2>
         <RiskPanel assessment={risks} />
       </section>
+
+      <ReportPanel
+        summary={summary}
+        report={report}
+        appliedCount={appliedCount}
+        failedCount={failedCount}
+      />
 
       {selected && <RecommendationDetailPage recommendation={selected} onClose={() => setSelected(null)} />}
     </div>

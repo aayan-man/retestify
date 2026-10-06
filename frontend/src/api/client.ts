@@ -57,6 +57,10 @@ export const api = {
     request<Recommendation[]>(`/projects/${projectId}/recommendations`),
   getReport: (projectId: string) => request<ProjectReport>(`/projects/${projectId}/report`),
   downloadUrl: (projectId: string) => `/projects/${projectId}/download`,
+  // The report is assembled from the knowledge base, so it needs no job
+  // and can be linked to directly rather than fetched and blobbed.
+  reportUrl: (projectId: string, format: "html" | "md" | "json") =>
+    `/projects/${projectId}/full-report/download?format=${format}`,
 
   // Classify and apply are one LLM call per component and can run for
   // minutes, so the API starts a background job and we poll it rather than

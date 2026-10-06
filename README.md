@@ -116,6 +116,13 @@ All 8 planned phases have an initial implementation:
 - `run_tests()` persists each `RunResult` to `kb/runs.json`, and
   `GET /projects/{id}/report` carries the latest one, so the dashboard can
   show pass counts and coverage without re-running a suite.
+- `reporting/full_report.py` — assembles everything recorded for a project
+  (decisions with rationale, the latest run with per-test outcomes and
+  coverage, the coverage delta across runs, detected changes, risk findings
+  and the audit summary) into one document, downloadable as self-contained
+  HTML, Markdown or JSON from `GET /projects/{id}/full-report/download`. It
+  reads the knowledge base rather than recomputing anything, so producing it
+  costs no model calls.
 - `reporting/audit_log.py` — every recommendation and test-file write is
   logged to `kb/audit_log.jsonl`.
 

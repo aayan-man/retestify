@@ -230,3 +230,41 @@ def test_webhook_push_event_triggers_incremental_analysis(tmp_path, monkeypatch)
         from app.repo_manager.workspace import load_workspace
 
         shutil.rmtree(load_workspace(project_id).root, ignore_errors=True)
+
+
+def test_full_report_downloads_in_every_supported_format():
+    """The report is assembled from stored results, so it is available for a
+    project that has only been analyzed."""
+    resp = client.post(
+        "/projects/upload",
+        files={"file": ("sample.zip", _zip_fixture_bytes(), "application/zip")},
+    )
+    project_id = resp.json()["project_id"]
+    try:
+        structured = client.get(f"/projects/{project_id}/full-report")
+        assert structured.status_code == 200
+        assert structured.json()["project_id"] == project_id
+        assert structured.json()["component_count"] > 0
+
+        expected = {
+            "html": "text/html",
+            "md": "text/markdown",
+            "json": "application/json",
+        }
+        for fmt, media_type in expected.items():
+            download = client.get(f"/projects/{project_id}/full-report/download?format={fmt}")
+            assert download.status_code == 200, fmt
+            assert download.headers["content-type"].startswith(media_type)
+            assert f".{fmt}" in download.headers["content-disposition"]
+            assert "attachment" in download.headers["content-disposition"]
+            assert len(download.text) > 0
+
+        rejected = client.get(f"/projects/{project_id}/full-report/download?format=pdf")
+        assert rejected.status_code == 400
+        assert "unsupported format" in rejected.json()["detail"]
+    finally:
+        import shutil
+
+        from app.repo_manager.workspace import load_workspace
+
+        shutil.rmtree(load_workspace(project_id).root, ignore_errors=True)
